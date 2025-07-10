@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+This is a guest ID verification system for Moroccan rental hosts. The frontend is built with Vite + React + Tailwind, and the backend is Flask. Use Tesseract for OCR and ReportLab to generate PDFs. Store guest data in Supabase and use Firebase UID as the foreign key for the user.

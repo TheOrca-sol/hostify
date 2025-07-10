@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Organize backend code under /backend/app with folders for routes, utils, and db.py. The frontend should be under /frontend/src with components, pages, and services folders.
