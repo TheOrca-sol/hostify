@@ -331,6 +331,7 @@ export const api = {
       const response = await fetch(`${API_BASE_URL}/calendar/sync/${propertyId}`, {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         }
       });
@@ -357,10 +358,11 @@ export const api = {
     }
   },
 
-  async testIcalUrl(propertyId) {
+  // Test iCal URL
+  async testIcalUrl(icalUrl) {
     try {
       const token = await this.getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/calendar/test-ical/${propertyId}`, {
+      const response = await fetch(`${API_BASE_URL}/calendar/test-ical/${encodeURIComponent(icalUrl)}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

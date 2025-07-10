@@ -19,9 +19,14 @@ def create_app():
     
     # Configure CORS
     CORS(app, 
-         origins=['http://localhost:5173', 'http://localhost:3000'],
-         allow_headers=['Content-Type', 'Authorization'],
-         supports_credentials=True)
+         resources={r"/api/*": {
+             'origins': ['http://localhost:5173', 'http://localhost:3000'],
+             'methods': ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+             'allow_headers': ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+             'expose_headers': ['Content-Range', 'X-Total-Count'],
+             'supports_credentials': True,
+             'max_age': 86400  # Cache preflight requests for 24 hours
+         }})
     
     # Configuration
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')

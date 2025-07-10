@@ -87,7 +87,7 @@ export default function ReservationsList() {
                 {reservation.guest_name_partial || 'Guest'}
               </h3>
               <p className="text-sm text-gray-500 truncate">
-                ID: {reservation.external_id || reservation.id?.slice(0, 8)}
+                {reservation.property?.name || 'Property'} • ID: {reservation.external_id || reservation.id?.slice(0, 8)}
               </p>
             </div>
           </div>
@@ -113,14 +113,22 @@ export default function ReservationsList() {
           </div>
         </div>
         
-        {reservation.platform && (
-          <div className="mb-4 min-w-0">
-            <p className="text-sm text-gray-500">Platform</p>
-            <p className="text-sm font-medium text-gray-900 truncate capitalize">
-              {reservation.platform}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="min-w-0">
+            <p className="text-sm text-gray-500">Property</p>
+            <p className="text-sm font-medium text-gray-900 truncate">
+              {reservation.property?.name || 'Unknown Property'}
             </p>
           </div>
-        )}
+          {reservation.platform && (
+            <div className="min-w-0">
+              <p className="text-sm text-gray-500">Platform</p>
+              <p className="text-sm font-medium text-gray-900 truncate capitalize">
+                {reservation.platform}
+              </p>
+            </div>
+          )}
+        </div>
         
         {reservation.phone_partial && (
           <div className="mb-4 min-w-0">
