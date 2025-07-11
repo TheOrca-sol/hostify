@@ -2,34 +2,29 @@
 Reservation management routes for Hostify Property Management Platform
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from ..utils.database import (
     create_reservation, get_user_reservations, get_property_reservations,
     get_user_by_firebase_uid, get_property
 )
-from ..utils.auth import verify_firebase_token
+from ..utils.auth import require_auth, get_current_user_id
 from datetime import datetime, timezone
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 reservations_bp = Blueprint('reservations', __name__)
 
 @reservations_bp.route('/reservations', methods=['POST'])
+@require_auth
 def create_reservation_route():
     """
     Create a new reservation for a property
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        firebase_uid = verify_firebase_token(token)
-        if not firebase_uid:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
         # Get user record
-        user = get_user_by_firebase_uid(firebase_uid)
+        user = get_user_by_firebase_uid(g.user_id)
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
@@ -69,29 +64,21 @@ def create_reservation_route():
             return jsonify({'success': False, 'error': 'Failed to create reservation'}), 500
     
     except Exception as e:
+        logger.error(f"Failed to create reservation: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Failed to create reservation: {str(e)}'
         }), 500
 
 @reservations_bp.route('/reservations', methods=['GET'])
+@require_auth
 def get_reservations():
     """
     Get all reservations for the authenticated user (across all properties)
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        firebase_uid = verify_firebase_token(token)
-        if not firebase_uid:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
         # Get user record
-        user = get_user_by_firebase_uid(firebase_uid)
+        user = get_user_by_firebase_uid(g.user_id)
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
@@ -141,29 +128,21 @@ def get_reservations():
         })
     
     except Exception as e:
+        logger.error(f"Failed to get reservations: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Failed to get reservations: {str(e)}'
         }), 500
 
 @reservations_bp.route('/reservations/<reservation_id>', methods=['GET'])
+@require_auth
 def get_reservation(reservation_id):
     """
     Get a specific reservation with its guests
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        firebase_uid = verify_firebase_token(token)
-        if not firebase_uid:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
         # Get user record
-        user = get_user_by_firebase_uid(firebase_uid)
+        user = get_user_by_firebase_uid(g.user_id)
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
@@ -186,82 +165,63 @@ def get_reservation(reservation_id):
         })
     
     except Exception as e:
+        logger.error(f"Failed to get reservation: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Failed to get reservation: {str(e)}'
         }), 500
 
 @reservations_bp.route('/reservations/upcoming', methods=['GET'])
+@require_auth
 def get_upcoming_reservations():
     """
     Get upcoming reservations for the authenticated user
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        firebase_uid = verify_firebase_token(token)
-        if not firebase_uid:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
         # Get user record
-        user = get_user_by_firebase_uid(firebase_uid)
+        user = get_user_by_firebase_uid(g.user_id)
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
-        # Get upcoming reservations using filter
-        upcoming_reservations = get_user_reservations(user['id'], filter_type='upcoming')
-        
-        # Limit results if requested
-        limit = int(request.args.get('limit', 10))
-        upcoming_reservations = upcoming_reservations[:limit]
+        # Get upcoming reservations
+        reservations = get_user_reservations(user['id'], filter_type='upcoming')
         
         return jsonify({
             'success': True,
-            'reservations': upcoming_reservations,
-            'total': len(upcoming_reservations)
+            'reservations': reservations,
+            'total': len(reservations)
         })
     
     except Exception as e:
+        logger.error(f"Failed to get upcoming reservations: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Failed to get upcoming reservations: {str(e)}'
         }), 500
 
 @reservations_bp.route('/reservations/current', methods=['GET'])
+@require_auth
 def get_current_reservations():
     """
-    Get current active reservations for the authenticated user
+    Get current (ongoing) reservations for the authenticated user
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        firebase_uid = verify_firebase_token(token)
-        if not firebase_uid:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
         # Get user record
-        user = get_user_by_firebase_uid(firebase_uid)
+        user = get_user_by_firebase_uid(g.user_id)
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
-        # Get current reservations using filter
-        current_reservations = get_user_reservations(user['id'], filter_type='current')
+        # Get current reservations
+        reservations = get_user_reservations(user['id'], filter_type='current')
         
         return jsonify({
             'success': True,
-            'reservations': current_reservations,
-            'total': len(current_reservations)
+            'reservations': reservations,
+            'total': len(reservations)
         })
     
     except Exception as e:
+        logger.error(f"Failed to get current reservations: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Failed to get current reservations: {str(e)}'

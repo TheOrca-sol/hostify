@@ -2,9 +2,9 @@
 Guest management routes - Updated for property-centric architecture
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from ..utils.database import get_user_guests, create_guest, get_reservation_guests, update_guest, get_guest_by_reservation
-from ..utils.auth import verify_firebase_token
+from ..utils.auth import require_auth, get_current_user_id
 from datetime import datetime
 
 guests_bp = Blueprint('guests', __name__)
@@ -18,6 +18,7 @@ def after_request(response):
     return response
 
 @guests_bp.route('/guests/<guest_id>', methods=['PUT', 'OPTIONS'])
+@require_auth
 def update_guest_route(guest_id):
     """
     Update a specific guest's information
@@ -27,16 +28,6 @@ def update_guest_route(guest_id):
         return '', 204
         
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        user_id = verify_firebase_token(token)
-        if not user_id:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
         # Get guest data
         guest_data = request.get_json()
         if not guest_data:
@@ -63,23 +54,14 @@ def update_guest_route(guest_id):
         }), 500
 
 @guests_bp.route('/guests', methods=['GET'])
+@require_auth
 def get_guests():
     """
     Get all guests for the authenticated user (across all properties)
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        firebase_uid = verify_firebase_token(token)
-        if not firebase_uid:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
-        # Get guests from database using Firebase UID directly
-        guests = get_user_guests(firebase_uid)
+        # Get guests from database using Firebase UID from g object
+        guests = get_user_guests(g.user_id)
         
         return jsonify({
             'success': True,
@@ -94,27 +76,16 @@ def get_guests():
         }), 500
 
 @guests_bp.route('/reservations/<reservation_id>/guests', methods=['POST'])
-def create_reservation_guest():
+@require_auth
+def create_reservation_guest(reservation_id):
     """
     Create or update a guest for a specific reservation
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        user_id = verify_firebase_token(token)
-        if not user_id:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
         # Get guest data
         guest_data = request.get_json()
         if not guest_data:
             return jsonify({'success': False, 'error': 'No guest data provided'}), 400
-        
-        reservation_id = request.view_args['reservation_id']
         
         # Parse birthdate if it's a string
         if isinstance(guest_data.get('birthdate'), str):
@@ -153,23 +124,12 @@ def create_reservation_guest():
         }), 500
 
 @guests_bp.route('/reservations/<reservation_id>/guests', methods=['GET'])
-def get_reservation_guests_route():
+@require_auth
+def get_reservation_guests_route(reservation_id):
     """
     Get all guests for a specific reservation
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        user_id = verify_firebase_token(token)
-        if not user_id:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
-        reservation_id = request.view_args['reservation_id']
-        
         # Get guests for this reservation
         guests = get_reservation_guests(reservation_id)
         
@@ -187,36 +147,21 @@ def get_reservation_guests_route():
 
 # Legacy endpoint for backward compatibility
 @guests_bp.route('/guests', methods=['POST'])
+@require_auth
 def create_guest_legacy():
     """
     Legacy endpoint - now requires reservation_id in the data
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        user_id = verify_firebase_token(token)
-        if not user_id:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
         # Get guest data
         guest_data = request.get_json()
         if not guest_data:
             return jsonify({'success': False, 'error': 'No guest data provided'}), 400
-        
-        # Check for reservation_id
-        reservation_id = guest_data.get('reservation_id')
+            
+        # Ensure reservation_id is provided
+        reservation_id = guest_data.pop('reservation_id', None)
         if not reservation_id:
             return jsonify({'success': False, 'error': 'reservation_id is required'}), 400
-        
-        # Validate required fields
-        required_fields = ['full_name', 'cin_or_passport', 'birthdate', 'nationality']
-        for field in required_fields:
-            if not guest_data.get(field):
-                return jsonify({'success': False, 'error': f'Missing required field: {field}'}), 400
         
         # Parse birthdate if it's a string
         if isinstance(guest_data.get('birthdate'), str):
@@ -224,7 +169,6 @@ def create_guest_legacy():
         
         # Create guest
         guest_id = create_guest(reservation_id, **guest_data)
-        
         if guest_id:
             return jsonify({
                 'success': True,

@@ -233,7 +233,7 @@ class Contract(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
     
     def to_dict(self):
-        return {
+        data = {
             'id': str(self.id),
             'reservation_id': str(self.reservation_id),
             'guest_id': str(self.guest_id),
@@ -248,6 +248,34 @@ class Contract(db.Model):
             'audit_trail': self.audit_trail,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
+        
+        # Add guest information
+        if self.guest:
+            data['guest'] = {
+                'id': str(self.guest.id),
+                'full_name': self.guest.full_name,
+                'email': self.guest.email,
+                'phone': self.guest.phone
+            }
+        
+        # Add reservation information
+        if self.reservation:
+            data['reservation'] = {
+                'id': str(self.reservation.id),
+                'check_in': self.reservation.check_in.isoformat() if self.reservation.check_in else None,
+                'check_out': self.reservation.check_out.isoformat() if self.reservation.check_out else None,
+                'status': self.reservation.status
+            }
+            
+            # Add property information
+            if self.reservation.property:
+                data['property'] = {
+                    'id': str(self.reservation.property.id),
+                    'name': self.reservation.property.name,
+                    'address': self.reservation.property.address
+                }
+        
+        return data
 
 class VerificationLink(db.Model):
     """Verification links sent to guests"""
@@ -303,6 +331,105 @@ class Message(db.Model):
             'channel': self.channel,
             'sent_at': self.sent_at.isoformat() if self.sent_at else None,
             'delivery_status': self.delivery_status
+        }
+
+class MessageTemplate(db.Model):
+    """Message templates for automated communications"""
+    __tablename__ = 'message_templates'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
+    property_id = db.Column(UUID(as_uuid=True), db.ForeignKey('properties.id'), nullable=True)
+    name = db.Column(db.Text, nullable=False)
+    type = db.Column(db.Text, nullable=False)  # checkin, checkout, welcome, review_request, cleaner
+    subject = db.Column(db.Text, nullable=True)
+    content = db.Column(db.Text, nullable=False)
+    language = db.Column(db.Text, nullable=False, server_default='en')
+    channels = db.Column(db.ARRAY(db.Text), nullable=False)  # ['email', 'sms', 'whatsapp']
+    variables = db.Column(JSON, nullable=True)
+    active = db.Column(db.Boolean, nullable=False, server_default=text('true'))
+    created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    
+    # Relationships
+    user = db.relationship('User', backref='message_templates', lazy=True)
+    property = db.relationship('Property', backref='message_templates', lazy=True)
+    scheduled_messages = db.relationship('ScheduledMessage', backref='template', lazy=True)
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'user_id': str(self.user_id),
+            'property_id': str(self.property_id) if self.property_id else None,
+            'name': self.name,
+            'type': self.type,
+            'subject': self.subject,
+            'content': self.content,
+            'language': self.language,
+            'channels': self.channels,
+            'variables': self.variables,
+            'active': self.active,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+class ScheduledMessage(db.Model):
+    """Scheduled messages for automated delivery"""
+    __tablename__ = 'scheduled_messages'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    template_id = db.Column(UUID(as_uuid=True), db.ForeignKey('message_templates.id'), nullable=False)
+    reservation_id = db.Column(UUID(as_uuid=True), db.ForeignKey('reservations.id'), nullable=False)
+    guest_id = db.Column(UUID(as_uuid=True), db.ForeignKey('guests.id'), nullable=False)
+    scheduled_for = db.Column(db.DateTime(timezone=True), nullable=False)
+    status = db.Column(db.Text, nullable=False, server_default='scheduled')  # scheduled, sent, cancelled
+    channels = db.Column(db.ARRAY(db.Text), nullable=False)
+    sent_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    delivery_status = db.Column(JSON, nullable=True)  # Status per channel
+    created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    
+    # Relationships
+    reservation = db.relationship('Reservation', backref='scheduled_messages', lazy=True)
+    guest = db.relationship('Guest', backref='scheduled_messages', lazy=True)
+    logs = db.relationship('MessageLog', backref='scheduled_message', lazy=True)
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'template_id': str(self.template_id),
+            'reservation_id': str(self.reservation_id),
+            'guest_id': str(self.guest_id),
+            'scheduled_for': self.scheduled_for.isoformat() if self.scheduled_for else None,
+            'status': self.status,
+            'channels': self.channels,
+            'sent_at': self.sent_at.isoformat() if self.sent_at else None,
+            'delivery_status': self.delivery_status,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+
+class MessageLog(db.Model):
+    """Detailed message delivery logs"""
+    __tablename__ = 'message_logs'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    scheduled_message_id = db.Column(UUID(as_uuid=True), db.ForeignKey('scheduled_messages.id'), nullable=False)
+    channel = db.Column(db.Text, nullable=False)  # email, sms, whatsapp
+    status = db.Column(db.Text, nullable=False)  # sent, delivered, failed
+    provider_message_id = db.Column(db.Text, nullable=True)  # ID from Twilio/SendGrid
+    sent_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    delivered_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    error_message = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'scheduled_message_id': str(self.scheduled_message_id),
+            'channel': self.channel,
+            'status': self.status,
+            'provider_message_id': self.provider_message_id,
+            'sent_at': self.sent_at.isoformat() if self.sent_at else None,
+            'delivered_at': self.delivered_at.isoformat() if self.delivered_at else None,
+            'error_message': self.error_message,
+            'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
 class SyncLog(db.Model):

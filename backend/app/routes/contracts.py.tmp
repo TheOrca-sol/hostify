@@ -176,9 +176,10 @@ def generate_contract(guest_id):
                 user_id=uuid.UUID(user['id'])
             ).first()
         else:
-            template = ContractTemplate.query.filter_by(
-                user_id=uuid.UUID(user['id']),
-                is_default=True
+            # Get default template
+            template = ContractTemplate.query.filter(
+                ContractTemplate.user_id == uuid.UUID(user['id']),
+                ContractTemplate.is_default == True
             ).first()
         
         if not template:

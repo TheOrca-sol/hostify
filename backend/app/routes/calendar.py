@@ -3,7 +3,7 @@ Calendar management routes for property iCal sync
 Updated for property-centric architecture with reservations
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from app.models import db, Property, SyncLog, User
 from app.utils.auth import require_auth
 from app.utils.calendar_sync import sync_property_calendar, validate_ical_url
@@ -14,16 +14,9 @@ calendar_bp = Blueprint('calendar', __name__)
 
 @calendar_bp.route('/calendar/test-ical/<path:ical_url>', methods=['GET', 'OPTIONS'])
 @cross_origin()
+@require_auth
 def test_ical_url(ical_url):
     """Test if an iCal URL is valid and accessible"""
-    # Handle preflight request
-    if request.method == 'OPTIONS':
-        response = jsonify({'status': 'ok'})
-        response.headers.add('Access-Control-Allow-Methods', 'GET, OPTIONS')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        response.headers.add('Access-Control-Max-Age', '86400')
-        return response, 200
-        
     try:
         # Validate the iCal URL
         is_valid = validate_ical_url(ical_url)
@@ -45,94 +38,78 @@ def test_ical_url(ical_url):
 
 @calendar_bp.route('/calendar/sync/<property_id>', methods=['POST', 'OPTIONS'])
 @cross_origin()
+@require_auth
 def sync_calendar(property_id):
     """Manually trigger calendar sync for a property"""
-    # Handle preflight request
-    if request.method == 'OPTIONS':
-        response = jsonify({'status': 'ok'})
-        response.headers.add('Access-Control-Allow-Methods', 'POST, OPTIONS')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        response.headers.add('Access-Control-Max-Age', '86400')
-        return response, 200
+    if not property_id:
+        return jsonify({'success': False, 'error': 'Property ID is required'}), 400
         
-    # For actual requests, require authentication
-    @require_auth
-    def protected_sync():
-        if not property_id:
-            return jsonify({'success': False, 'error': 'Property ID is required'}), 400
-            
-        # Get the user's ID from their Firebase UID
-        user = User.query.filter_by(firebase_uid=request.user['uid']).first()
-        if not user:
-            return jsonify({'success': False, 'error': 'User not found'}), 404
-            
-        property = Property.query.get_or_404(property_id)
+    # Get the user's ID from their Firebase UID
+    user = User.query.filter_by(firebase_uid=g.user_id).first()
+    if not user:
+        return jsonify({'success': False, 'error': 'User not found'}), 404
         
-        # Check if property belongs to current user
-        if property.user_id != user.id:
-            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    property = Property.query.get_or_404(property_id)
+    
+    # Check if property belongs to current user
+    if property.user_id != user.id:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    try:
+        # Sync calendar
+        sync_success = sync_property_calendar(property)
         
-        try:
-            # Sync calendar
-            sync_success = sync_property_calendar(property)
-            
-            # Log sync attempt
-            log = SyncLog(
-                property_id=property_id,
-                sync_type='manual',
-                status='success' if sync_success else 'failed',
-                events_processed=0,  # This will be updated by sync_property_calendar
-                errors=None if sync_success else {'message': 'Manual sync failed'}
-            )
-            db.session.add(log)
-            db.session.commit()
-            
-            if sync_success:
-                return jsonify({
-                    'success': True,
-                    'message': 'Calendar synced successfully'
-                })
-            else:
-                return jsonify({
-                    'success': False,
-                    'error': 'Failed to sync calendar'
-                }), 500
-                
-        except Exception as e:
-            # Log error
-            log = SyncLog(
-                property_id=property_id,
-                sync_type='manual',
-                status='failed',
-                events_processed=0,
-                errors={'message': str(e)}
-            )
-            db.session.add(log)
-            db.session.commit()
-            
+        # Log sync attempt
+        log = SyncLog(
+            property_id=property_id,
+            sync_type='manual',
+            status='success' if sync_success else 'failed',
+            events_processed=0,  # This will be updated by sync_property_calendar
+            errors=None if sync_success else {'message': 'Manual sync failed'}
+        )
+        db.session.add(log)
+        db.session.commit()
+        
+        if sync_success:
+            return jsonify({
+                'success': True,
+                'message': 'Calendar synced successfully'
+            })
+        else:
             return jsonify({
                 'success': False,
-                'error': f'Sync error: {str(e)}'
+                'error': 'Failed to sync calendar'
             }), 500
             
-    return protected_sync()
+    except Exception as e:
+        # Log error
+        log = SyncLog(
+            property_id=property_id,
+            sync_type='manual',
+            status='failed',
+            events_processed=0,
+            errors={'message': str(e)}
+        )
+        db.session.add(log)
+        db.session.commit()
+        
+        return jsonify({
+            'success': False,
+            'error': f'Sync error: {str(e)}'
+        }), 500
 
 @calendar_bp.route('/calendar/sync/status/<property_id>', methods=['GET', 'OPTIONS'])
 @cross_origin()
 @require_auth
 def get_sync_status(property_id):
     """Get sync status for a property"""
-    # Handle preflight request
-    if request.method == 'OPTIONS':
-        return jsonify({'status': 'ok'}), 200
-        
     if not property_id:
         return jsonify({'success': False, 'error': 'Property ID is required'}), 400
         
     property = Property.query.get_or_404(property_id)
     
     # Check if property belongs to current user
-    if str(property.user_id) != request.user['uid']:
+    if str(property.user_id) != g.user_id:
         return jsonify({'success': False, 'error': 'Unauthorized'}), 403
     
     # Get latest sync log
@@ -160,12 +137,8 @@ def get_sync_status(property_id):
 @require_auth
 def sync_all_calendars():
     """Sync calendars for all properties owned by the user"""
-    # Handle preflight request
-    if request.method == 'OPTIONS':
-        return jsonify({'status': 'ok'}), 200
-        
     # Get all properties for the current user
-    properties = Property.query.filter_by(user_id=request.user['uid']).all()
+    properties = Property.query.filter_by(user_id=g.user_id).all()
     
     results = []
     for property in properties:

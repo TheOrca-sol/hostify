@@ -5,6 +5,21 @@ Entry point for the Flask application with Flask-Migrate support
 """
 
 import os
+from dotenv import load_dotenv
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+# Load environment variables from .env file
+logger.debug("Loading environment variables...")
+load_dotenv()
+
+# Debug: Print loaded environment variables
+logger.debug("FIREBASE_ADMIN_SDK_JSON exists: %s", bool(os.getenv('FIREBASE_ADMIN_SDK_JSON')))
+logger.debug("FIREBASE_SERVICE_ACCOUNT_PATH: %s", os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH'))
+
 from app import create_app
 from app.models import db
 from flask_migrate import Migrate

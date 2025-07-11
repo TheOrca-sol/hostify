@@ -2,35 +2,30 @@
 Property management routes for Hostify Property Management Platform
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from ..utils.database import (
     create_property, get_user_properties, get_property, update_property,
     get_property_reservations, get_user_by_firebase_uid, create_user,
     delete_property
 )
-from ..utils.auth import verify_firebase_token
+from ..utils.auth import require_auth, get_current_user_id
 from datetime import datetime
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 properties_bp = Blueprint('properties', __name__)
 
 @properties_bp.route('/properties', methods=['POST'])
+@require_auth
 def create_property_route():
     """
     Create a new property for the authenticated user
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        firebase_uid = verify_firebase_token(token)
-        if not firebase_uid:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
-        # Get or create user record
-        user = get_user_by_firebase_uid(firebase_uid)
+        # Get user record
+        user = get_user_by_firebase_uid(g.user_id)
         if not user:
             return jsonify({'success': False, 'error': 'User not found. Please complete profile setup.'}), 404
         
@@ -64,28 +59,33 @@ def create_property_route():
         }), 500
 
 @properties_bp.route('/properties', methods=['GET'])
+@require_auth
 def get_properties():
     """
     Get all properties for the authenticated user
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        firebase_uid = verify_firebase_token(token)
-        if not firebase_uid:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
         # Get user record
-        user = get_user_by_firebase_uid(firebase_uid)
+        logger.debug(f"Looking up user with firebase_uid: {g.user_id}")
+        user = get_user_by_firebase_uid(g.user_id)
+        
         if not user:
+            # Create user if they don't exist
+            logger.debug(f"User not found, creating new user for firebase_uid: {g.user_id}")
+            user_id = create_user(
+                firebase_uid=g.user_id,
+                email=g.user.get('email', ''),
+                name=g.user.get('name', 'New User')
+            )
+            user = get_user_by_firebase_uid(g.user_id)
+            
+        if not user:
+            logger.error(f"Failed to get/create user for firebase_uid: {g.user_id}")
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
         # Get properties from database
         properties = get_user_properties(user['id'])
+        logger.debug(f"Found {len(properties)} properties for user {user['id']}")
         
         return jsonify({
             'success': True,
@@ -94,29 +94,21 @@ def get_properties():
         })
     
     except Exception as e:
+        logger.error(f"Failed to get properties: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Failed to get properties: {str(e)}'
         }), 500
 
 @properties_bp.route('/properties/<property_id>', methods=['GET'])
+@require_auth
 def get_property_route(property_id):
     """
     Get a specific property for the authenticated user
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        firebase_uid = verify_firebase_token(token)
-        if not firebase_uid:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
         # Get user record
-        user = get_user_by_firebase_uid(firebase_uid)
+        user = get_user_by_firebase_uid(g.user_id)
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
@@ -137,23 +129,14 @@ def get_property_route(property_id):
         }), 500
 
 @properties_bp.route('/properties/<property_id>', methods=['PUT'])
+@require_auth
 def update_property_route(property_id):
     """
     Update a property for the authenticated user
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        firebase_uid = verify_firebase_token(token)
-        if not firebase_uid:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
         # Get user record
-        user = get_user_by_firebase_uid(firebase_uid)
+        user = get_user_by_firebase_uid(g.user_id)
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
@@ -180,75 +163,51 @@ def update_property_route(property_id):
         }), 500
 
 @properties_bp.route('/properties/<property_id>/reservations', methods=['GET'])
+@require_auth
 def get_property_reservations_route(property_id):
     """
     Get all reservations for a specific property
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        firebase_uid = verify_firebase_token(token)
-        if not firebase_uid:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
         # Get user record
-        user = get_user_by_firebase_uid(firebase_uid)
+        user = get_user_by_firebase_uid(g.user_id)
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
-        # Verify property ownership
-        property_data = get_property(property_id, user['id'])
-        if not property_data:
-            return jsonify({'success': False, 'error': 'Property not found or access denied'}), 404
-        
-        # Get reservations for this property
-        reservations = get_property_reservations(property_id)
+        # Get property reservations
+        reservations = get_property_reservations(property_id, user['id'])
         
         return jsonify({
             'success': True,
             'reservations': reservations,
-            'total': len(reservations),
-            'property': property_data
+            'total': len(reservations)
         })
     
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': f'Failed to get property reservations: {str(e)}'
+            'error': f'Failed to get reservations: {str(e)}'
         }), 500
 
 @properties_bp.route('/properties/<property_id>', methods=['DELETE'])
+@require_auth
 def delete_property_route(property_id):
     """
-    Delete a property and all its associated data (reservations, guests, contracts)
+    Delete a property for the authenticated user
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        firebase_uid = verify_firebase_token(token)
-        if not firebase_uid:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
         # Get user record
-        user = get_user_by_firebase_uid(firebase_uid)
+        user = get_user_by_firebase_uid(g.user_id)
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
-        # Delete property and all associated data
+        # Delete property
         success = delete_property(property_id, user['id'])
         
         if success:
             return jsonify({
                 'success': True,
-                'message': 'Property and all associated data deleted successfully'
+                'message': 'Property deleted successfully'
             })
         else:
             return jsonify({'success': False, 'error': 'Failed to delete property or property not found'}), 404
@@ -260,53 +219,27 @@ def delete_property_route(property_id):
         }), 500
 
 @properties_bp.route('/user/setup', methods=['POST'])
+@require_auth
 def setup_user():
     """
-    Complete user profile setup after Firebase authentication
+    Setup a new user profile
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        firebase_uid = verify_firebase_token(token)
-        if not firebase_uid:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
         # Get user data
         user_data = request.get_json()
         if not user_data:
             return jsonify({'success': False, 'error': 'No user data provided'}), 400
         
-        # Validate required fields
-        required_fields = ['email', 'name']
-        for field in required_fields:
-            if not user_data.get(field):
-                return jsonify({'success': False, 'error': f'Missing required field: {field}'}), 400
-        
-        # Check if user already exists
-        existing_user = get_user_by_firebase_uid(firebase_uid)
-        if existing_user:
-            return jsonify({
-                'success': True,
-                'message': 'User already exists',
-                'user': existing_user
-            })
-        
-        # Create user record
-        user_id = create_user(firebase_uid, **user_data)
+        # Create user with Firebase UID
+        user_id = create_user(g.user_id, **user_data)
         
         if user_id:
-            user = get_user_by_firebase_uid(firebase_uid)
             return jsonify({
                 'success': True,
-                'message': 'User setup completed successfully',
-                'user': user
+                'message': 'User profile created successfully'
             })
         else:
-            return jsonify({'success': False, 'error': 'Failed to create user record'}), 500
+            return jsonify({'success': False, 'error': 'Failed to create user profile'}), 500
     
     except Exception as e:
         return jsonify({
@@ -315,25 +248,16 @@ def setup_user():
         }), 500
 
 @properties_bp.route('/user/profile', methods=['GET'])
+@require_auth
 def get_user_profile():
     """
-    Get user profile information
+    Get the current user's profile
     """
     try:
-        # Verify Firebase token
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'success': False, 'error': 'Authentication required'}), 401
-        
-        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
-        firebase_uid = verify_firebase_token(token)
-        if not firebase_uid:
-            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
-        
         # Get user record
-        user = get_user_by_firebase_uid(firebase_uid)
+        user = get_user_by_firebase_uid(g.user_id)
         if not user:
-            return jsonify({'success': False, 'error': 'User not found. Please complete profile setup.'}), 404
+            return jsonify({'success': False, 'error': 'User not found'}), 404
         
         return jsonify({
             'success': True,
