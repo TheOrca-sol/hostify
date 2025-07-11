@@ -1,68 +1,103 @@
-# 🏠 Hostify - Guest ID Verification System
+# 🏠 Hostify - Complete Property Management Platform
 
-A comprehensive web application for Moroccan rental hosts to verify guest identities and generate legal police forms using OCR technology and automated PDF generation.
+A comprehensive property management system for Moroccan rental hosts that handles guest verification, contract generation, digital signatures, automated messaging, and legal compliance.
 
 ## 🌟 **Key Features**
 
-### **🔐 For Hosts (Authentication Required)**
-- **Firebase Authentication** - Login with Google, Apple, or Microsoft  
-- **Verification Link Management** - Generate secure, time-limited verification links
-- **Guest Dashboard** - View all completed verifications
-- **PDF Generation** - Download French police forms compliant with Moroccan law
-- **Data Management** - Edit and delete guest records
+### **🏢 Property Management**
+- **Multi-property Support** - Manage unlimited properties
+- **Property Details** - Track addresses, amenities, and settings
+- **Calendar Sync** - Automatic iCal synchronization with booking platforms
+- **Occupancy Overview** - Visual calendar of all reservations
 
-### **📱 For Guests (No Account Required)**
-- **One-Click Verification** - Access via secure link from host
-- **Smart OCR Processing** - Automatic data extraction from ID documents
-- **Mobile-Friendly Interface** - Upload and verify from any device
-- **Instant Completion** - Simple 3-step verification process
+### **📋 Reservation Management**
+- **Auto-Sync** - Import bookings from Airbnb, Booking.com, etc.
+- **Guest Assignment** - Link guests to reservations
+- **Status Tracking** - Monitor confirmed, pending, and completed stays
+- **Calendar View** - Visual timeline of all bookings
+
+### **🔐 Guest Verification**
+- **Automated Process** - Send verification links to guests
+- **Document Upload** - OCR processing of ID documents
+- **Data Validation** - Verify guest information
+- **Status Tracking** - Monitor verification progress
+
+### **📄 Contract Management**
+- **Template System** - Customize contract templates
+- **Auto-Generation** - Create contracts from verified guest data
+- **Digital Signatures** - Secure online contract signing
+- **PDF Generation** - Professional contract documents
+- **Legal Compliance** - Meet Moroccan rental regulations
+
+### **💬 Communication Center**
+- **Message Templates** - Pre-built templates for common scenarios
+- **Automated Messaging** - Schedule messages based on booking events
+- **Multi-Channel** - Email and SMS support
+- **Guest Timeline** - Track all communications
+- **Language Support** - Templates in Arabic, French, and English
+
+### **📱 Host Dashboard**
+- **Overview** - Quick stats and recent activity
+- **Property Cards** - Status of each property
+- **Task Management** - Track pending verifications and contracts
+- **Communication Log** - Recent messages and notifications
 
 ---
 
 ## 🏗️ **Architecture**
 
 ### **Frontend (React + Vite)**
-- **Framework**: React 18 with Vite for fast development
-- **Styling**: TailwindCSS for modern, responsive design
-- **Authentication**: Firebase SDK integration
-- **State Management**: React hooks and context
-- **Routing**: React Router with protected/public routes
+- **Framework**: React 18 with Vite
+- **Styling**: TailwindCSS for modern UI
+- **State Management**: React Context + Hooks
+- **Routing**: React Router with protected routes
+- **Components**: Reusable UI library
 
 ### **Backend (Flask + Python)**
 - **Framework**: Flask with Blueprint architecture
-- **OCR Processing**: Tesseract for ID document text extraction
-- **PDF Generation**: ReportLab for French police forms
-- **Authentication**: Firebase Admin SDK for token verification
-- **File Handling**: Secure temporary file processing
+- **Database**: PostgreSQL with SQLAlchemy ORM
+- **Authentication**: Firebase Admin SDK
+- **Background Tasks**: Redis + Celery for scheduling
+- **File Processing**: 
+  - Tesseract for OCR
+  - ReportLab for PDF generation
+  - Cloud storage for documents
 
-### **Database (Supabase PostgreSQL)**
-- **Guest Records**: Complete verification data with timestamps
-- **Verification Links**: Secure token management with expiration
-- **Row Level Security**: User isolation and data protection
-- **Real-time Updates**: Instant synchronization across clients
+### **Integrations**
+- **Authentication**: Firebase (Google, Apple, Microsoft)
+- **Database**: Supabase PostgreSQL
+- **Storage**: Firebase Storage
+- **Messaging**: Twilio (SMS) + SendGrid (Email)
+- **Calendar**: iCal synchronization
+- **Signatures**: Digital signature processing
 
 ---
 
-## 🚀 **New Verification Workflow**
+## 🔄 **Core Workflows**
 
-### **Step 1: Host Creates Link**
+### **1. Property Setup**
 ```
-Host Dashboard → Create Verification Link → Set expiration → Copy link
-```
-
-### **Step 2: Host Sends to Guest**
-```
-WhatsApp/Email: "Please verify your ID: https://hostify.app/verify/abc123..."
+Add Property → Configure Settings → Set Contract Templates → Enable Auto-sync
 ```
 
-### **Step 3: Guest Completes Verification**
+### **2. Reservation Management**
 ```
-Click Link → Upload ID → Review Data → Submit → Done!
+Auto-sync Bookings → Assign Guests → Schedule Messages → Track Status
 ```
 
-### **Step 4: Host Reviews Results**
+### **3. Guest Verification**
 ```
-Dashboard → Verified Guests → Download PDF → Send to Police
+Send Link → Guest Uploads ID → OCR Processing → Data Verification
+```
+
+### **4. Contract Process**
+```
+Generate Contract → Guest Reviews → Digital Signature → Store Document
+```
+
+### **5. Communication Flow**
+```
+Create Templates → Set Triggers → Automated Sending → Track Responses
 ```
 
 ---
@@ -72,118 +107,15 @@ Dashboard → Verified Guests → Download PDF → Send to Police
 | Component | Technology | Purpose |
 |-----------|------------|---------|
 | **Frontend** | React + Vite + TailwindCSS | Modern, responsive UI |
-| **Backend** | Flask + Python | API and business logic |
+| **Backend** | Flask + SQLAlchemy | API and business logic |
 | **Database** | Supabase PostgreSQL | Data storage with RLS |
-| **Authentication** | Firebase Auth | Secure host login |
-| **OCR** | Tesseract | ID document processing |
-| **PDF** | ReportLab | Police form generation |
-| **Hosting** | Vercel + Railway | Scalable deployment |
-
----
-
-## 📦 **Installation**
-
-### **Prerequisites**
-- Node.js 18+ and npm
-- Python 3.9+ and pip
-- Firebase project with Authentication enabled
-- Supabase project with PostgreSQL database
-
-### **Quick Start**
-```bash
-# Clone repository
-git clone https://github.com/your-username/hostify.git
-cd hostify
-
-# Setup backend
-cd backend
-chmod +x setup-venv.sh
-./setup-venv.sh
-source venv/bin/activate
-pip install -r requirements.txt
-
-# Setup frontend
-cd ../frontend
-npm install
-
-# Configure environment variables (see setup.md)
-# Run development servers
-cd ..
-chmod +x run-dev.sh
-./run-dev.sh
-```
-
-### **Environment Configuration**
-See [setup.md](setup.md) for detailed environment variable configuration.
-
----
-
-## 🔄 **API Documentation**
-
-### **Host Endpoints** (Authentication Required)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/create-verification-link` | Create guest verification link |
-| `GET` | `/api/verification-links` | List host's verification links |
-| `GET` | `/api/guests` | Get verified guests |
-| `DELETE` | `/api/guests/{id}` | Delete guest record |
-| `POST` | `/api/generate-pdf` | Generate police form PDF |
-
-### **Guest Endpoints** (Public Access)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/verify/{token}` | Get verification link info |
-| `POST` | `/api/verify/{token}/upload` | Upload ID document |
-| `POST` | `/api/verify/{token}/submit` | Submit verification data |
-
----
-
-## 🔐 **Security Features**
-
-- **🛡️ Token-based verification** with automatic expiration
-- **🔒 Row Level Security** in Supabase for data isolation
-- **🚫 Anonymous guest access** (no accounts required)
-- **⏰ Time-limited links** prevent unauthorized access
-- **🔑 One-time use tokens** prevent replay attacks
-- **🔥 Firebase Admin SDK** for secure authentication
-
----
-
-## 📱 **Mobile Support**
-
-- **📸 Camera integration** for direct ID photo capture
-- **👆 Touch-friendly interface** optimized for smartphones
-- **📶 Offline capability** for form completion
-- **🔄 Auto-save** prevents data loss
-- **📏 Responsive design** adapts to all screen sizes
-
----
-
-## 🌍 **Internationalization**
-
-- **🇫🇷 French PDF generation** for Moroccan police compliance
-- **🇲🇦 Arabic text support** for Moroccan ID cards
-- **🌐 Multi-language UI** (French/Arabic/English)
-- **🗓️ Date format localization** for different regions
-
----
-
-## 🚀 **Deployment**
-
-### **Production Environment**
-```bash
-# Build frontend
-cd frontend && npm run build
-
-# Configure production environment variables
-# Deploy to your preferred hosting platform
-```
-
-### **Recommended Hosting**
-- **Frontend**: Vercel or Netlify
-- **Backend**: Railway, Heroku, or DigitalOcean
-- **Database**: Supabase (managed PostgreSQL)
-- **Storage**: Supabase Storage or AWS S3
+| **Auth** | Firebase Auth | User authentication |
+| **Tasks** | Redis + Celery | Background processing |
+| **OCR** | Tesseract | Document processing |
+| **PDF** | ReportLab | Contract generation |
+| **Storage** | Firebase Storage | Document storage |
+| **Email** | SendGrid | Email communications |
+| **SMS** | Twilio | SMS notifications |
 
 ---
 
@@ -193,59 +125,44 @@ cd frontend && npm run build
 hostify/
 ├── frontend/                 # React application
 │   ├── src/
-│   │   ├── components/      # Reusable UI components
-│   │   ├── pages/           # Route components
-│   │   ├── services/        # API and auth services
-│   │   └── App.jsx          # Main application
+│   │   ├── components/      # UI components
+│   │   ├── pages/          # Route components
+│   │   ├── services/       # API and auth services
+│   │   └── App.jsx         # Main application
 │   └── package.json
-├── backend/                  # Flask API
+├── backend/                 # Flask API
 │   ├── app/
-│   │   ├── routes/          # API endpoints
-│   │   ├── utils/           # Helper functions
-│   │   └── main.py          # Flask application
+│   │   ├── routes/         # API endpoints
+│   │   │   ├── properties.py   # Property management
+│   │   │   ├── reservations.py # Reservation handling
+│   │   │   ├── guests.py       # Guest management
+│   │   │   ├── contracts.py    # Contract operations
+│   │   │   ├── messages.py     # Communication system
+│   │   │   └── verification.py # ID verification
+│   │   ├── utils/          # Helper functions
+│   │   │   ├── auth.py        # Authentication
+│   │   │   ├── pdf.py         # PDF generation
+│   │   │   ├── ocr.py         # Document processing
+│   │   │   ├── messaging.py   # Communication
+│   │   │   └── calendar_sync.py # iCal sync
+│   │   └── models.py       # Database models
+│   ├── migrations/         # Database migrations
 │   ├── requirements.txt
 │   └── run.py
-├── database/
-│   └── supabase_schema.sql  # Database schema
-└── docs/                    # Documentation
+└── docs/                   # Documentation
 ```
-
----
-
-## 🤝 **Contributing**
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
----
-
-## 📝 **License**
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🆘 **Support**
-
-- **📚 Documentation**: [Full setup guide](setup.md)
-- **🚀 Quick start**: [Quick start guide](QUICK_START.md)
-- **🐛 Issues**: [GitHub Issues](https://github.com/your-username/hostify/issues)
-- **💬 Discussions**: [GitHub Discussions](https://github.com/your-username/hostify/discussions)
 
 ---
 
 ## 🎯 **Roadmap**
 
-- [ ] **Multi-property support** for large hosts
-- [ ] **Bulk verification** for group bookings
-- [ ] **QR code generation** for contactless check-in
-- [ ] **Mobile app** for iOS and Android
-- [ ] **Integration APIs** for booking platforms
-- [ ] **Advanced analytics** and reporting
+- [ ] **Booking Management** - Direct booking system
+- [ ] **Financial Module** - Payment processing and reporting
+- [ ] **Maintenance Module** - Track property maintenance
+- [ ] **Owner Portal** - For property owners
+- [ ] **Mobile Apps** - Native iOS and Android
+- [ ] **API Integration** - Public API for third-party integration
 
 ---
 
-**Made with ❤️ for Moroccan rental hosts** 
+**Built for Professional Rental Property Management** 🏢 
