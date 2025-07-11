@@ -1,74 +1,83 @@
 import React from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../services/auth'
-import { LogOut, Upload, Home, User, FileText } from 'lucide-react'
+import { 
+  Home,
+  FileText,
+  MessageSquare,
+  LogOut,
+  User
+} from 'lucide-react'
 
-function Navbar() {
-  const { user, logout } = useAuth()
-  const navigate = useNavigate()
+export default function Navbar() {
+  const { user, signOut } = useAuth()
+  const location = useLocation()
 
-  const handleLogout = async () => {
-    try {
-      await logout()
-      navigate('/login')
-    } catch (error) {
-      console.error('Logout error:', error)
-    }
-  }
-
-  if (!user) {
-    return null
-  }
+  const isActive = (path) => location.pathname === path
 
   return (
-    <nav className="bg-white shadow-lg">
+    <nav className="bg-white shadow-md">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="bg-primary-600 text-white p-2 rounded-lg">
-              <Home size={20} />
+          <div className="flex items-center space-x-8">
+            <Link to="/" className="text-xl font-bold text-blue-600">
+              Hostify
+            </Link>
+
+            <div className="hidden md:flex items-center space-x-4">
+              <Link
+                to="/"
+                className={`flex items-center space-x-2 px-3 py-2 rounded-md ${
+                  isActive('/') ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Home size={20} />
+                <span>Dashboard</span>
+              </Link>
+
+              <Link
+                to="/contract-templates"
+                className={`flex items-center space-x-2 px-3 py-2 rounded-md ${
+                  isActive('/contract-templates') ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <FileText size={20} />
+                <span>Contracts</span>
+              </Link>
+
+              <Link
+                to="/message-templates"
+                className={`flex items-center space-x-2 px-3 py-2 rounded-md ${
+                  isActive('/message-templates') ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <MessageSquare size={20} />
+                <span>Messages</span>
+              </Link>
             </div>
-            <span className="text-xl font-bold text-gray-800">Hostify</span>
-          </Link>
+          </div>
 
           <div className="flex items-center space-x-4">
             <Link
-              to="/"
-              className="flex items-center space-x-1 text-gray-700 hover:text-primary-600 transition-colors"
+              to="/profile-setup"
+              className={`flex items-center space-x-2 px-3 py-2 rounded-md ${
+                isActive('/profile-setup') ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
+              }`}
             >
-              <Home size={18} />
-              <span>Dashboard</span>
-            </Link>
-            
-            <Link
-              to="/contract-templates"
-              className="flex items-center space-x-1 text-gray-700 hover:text-primary-600 transition-colors"
-            >
-              <FileText size={18} />
-              <span>Contract Templates</span>
+              <User size={20} />
+              <span className="hidden md:inline">{user?.email}</span>
             </Link>
 
-            <div className="flex items-center space-x-3 border-l pl-4">
-              <div className="flex items-center space-x-2">
-                <User size={18} className="text-gray-600" />
-                <span className="text-sm text-gray-700">
-                  {user.displayName || user.email}
-                </span>
-              </div>
-              
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-1 text-gray-700 hover:text-red-600 transition-colors"
-              >
-                <LogOut size={18} />
-                <span>Logout</span>
-              </button>
-            </div>
+            <button
+              onClick={signOut}
+              className="flex items-center space-x-2 px-3 py-2 rounded-md text-gray-600 hover:bg-gray-100"
+            >
+              <LogOut size={20} />
+              <span className="hidden md:inline">Sign Out</span>
+            </button>
           </div>
         </div>
       </div>
     </nav>
   )
-}
-
-export default Navbar 
+} 

@@ -8,6 +8,7 @@ import Navbar from './components/Navbar'
 import { Toaster } from './components/Toaster'
 import GuestVerification from './pages/GuestVerification'
 import ContractTemplates from './pages/ContractTemplates'
+import MessageTemplates from './pages/MessageTemplates'
 import ContractSigning from './components/ContractSigning'
 
 // Protected route wrapper
@@ -57,6 +58,13 @@ function App() {
               <ProtectedRoute>
                 <Navbar />
                 <ContractTemplates />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/message-templates" element={
+              <ProtectedRoute>
+                <Navbar />
+                <MessageTemplates />
               </ProtectedRoute>
             } />
 

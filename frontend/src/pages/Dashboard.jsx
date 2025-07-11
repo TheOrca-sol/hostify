@@ -4,6 +4,8 @@ import { api } from '../services/api'
 import PropertyList from '../components/PropertyList'
 import ReservationsList from '../components/ReservationsList'
 import GuestList from '../components/GuestList'
+import CommunicationCenter from '../components/CommunicationCenter'
+import { Home, Calendar, Users, Mail, BarChart } from 'lucide-react'
 
 export default function Dashboard() {
   const { userProfile } = useAuth()
@@ -63,10 +65,11 @@ export default function Dashboard() {
   }
 
   const tabs = [
-    { id: 'overview', name: 'Overview', icon: 'chart' },
-    { id: 'properties', name: 'Properties', icon: 'home' },
-    { id: 'reservations', name: 'Reservations', icon: 'calendar' },
-    { id: 'guests', name: 'Guests', icon: 'users' }
+    { id: 'overview', name: 'Overview', icon: BarChart },
+    { id: 'properties', name: 'Properties', icon: Home },
+    { id: 'reservations', name: 'Reservations', icon: Calendar },
+    { id: 'guests', name: 'Guests', icon: Users },
+    { id: 'communications', name: 'Communications', icon: Mail }
   ]
 
   if (loading) {
@@ -180,19 +183,23 @@ export default function Dashboard() {
       <div className="bg-white shadow rounded-lg">
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6" aria-label="Tabs">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`${
-                  activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
-              >
-                {tab.name}
-              </button>
-            ))}
+            {tabs.map((tab) => {
+              const Icon = tab.icon
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`${
+                    activeTab === tab.id
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+                >
+                  <Icon className="h-5 w-5 mr-2" />
+                  {tab.name}
+                </button>
+              )
+            })}
           </nav>
         </div>
 
@@ -303,6 +310,10 @@ export default function Dashboard() {
 
           {activeTab === 'guests' && (
             <GuestList />
+          )}
+
+          {activeTab === 'communications' && (
+            <CommunicationCenter />
           )}
         </div>
       </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { api } from '../services/api'
 import { toast } from '../components/Toaster'
-import { FileText, Send, RefreshCw, Edit2 } from 'lucide-react'
+import { FileText, Send, RefreshCw, Edit2, Mail, MessageSquare, X } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import GuestEditForm from './GuestEditForm'
 
@@ -12,6 +12,11 @@ export default function GuestList() {
   const [generatingContract, setGeneratingContract] = useState(null)
   const [editingGuest, setEditingGuest] = useState(null)
   const [error, setError] = useState(null)
+
+  const [selectedGuest, setSelectedGuest] = useState(null)
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const [availableTemplates, setAvailableTemplates] = useState([])
+  const [sendingMessage, setSendingMessage] = useState(false)
 
   useEffect(() => {
     loadGuests()
@@ -87,6 +92,30 @@ export default function GuestList() {
     toast.success('Guest information updated successfully')
   }
 
+  const handleSendMessage = async (guest) => {
+    try {
+      const response = await api.getMessageTemplates({ property_id: guest.property?.id })
+      if (!response.success) {
+        toast.error('Failed to load message templates')
+        return
+      }
+
+      const templates = response.templates || []
+      if (templates.length === 0) {
+        toast.error('No message templates found. Please create templates first.')
+        return
+      }
+
+      // Show template selection modal
+      setSelectedGuest(guest)
+      setShowTemplateModal(true)
+      setAvailableTemplates(templates)
+    } catch (error) {
+      console.error('Error loading templates:', error)
+      toast.error('Failed to load message templates')
+    }
+  }
+
   const formatDate = (dateString) => {
     if (!dateString) return 'Not available'
     return new Date(dateString).toLocaleDateString()
@@ -133,6 +162,69 @@ export default function GuestList() {
         <p className="mt-2 text-sm text-gray-500">
           Guests will appear here after they complete the verification process.
         </p>
+      </div>
+    )
+  }
+
+  const TemplateSelectionModal = () => {
+    if (!showTemplateModal) return null
+
+    const handleTemplateSelect = async (template) => {
+      try {
+        setSendingMessage(true)
+        const response = await api.scheduleMessage({
+          template_id: template.id,
+          guest_id: selectedGuest.id,
+          reservation_id: selectedGuest.reservation_id,
+          send_immediately: true
+        })
+
+        if (response.success) {
+          toast.success('Message sent successfully')
+          setShowTemplateModal(false)
+        } else {
+          toast.error(response.error || 'Failed to send message')
+        }
+      } catch (error) {
+        console.error('Error sending message:', error)
+        toast.error('Failed to send message')
+      } finally {
+        setSendingMessage(false)
+      }
+    }
+
+    return (
+      <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium">Select Message Template</h3>
+            <button
+              onClick={() => setShowTemplateModal(false)}
+              className="text-gray-400 hover:text-gray-500"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            {availableTemplates.map(template => (
+              <button
+                key={template.id}
+                onClick={() => handleTemplateSelect(template)}
+                disabled={sendingMessage}
+                className="w-full text-left px-4 py-3 border rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium">{template.name}</h4>
+                    <p className="text-sm text-gray-500">{template.type}</p>
+                  </div>
+                  <Send className="h-4 w-4 text-gray-400" />
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     )
   }
@@ -192,6 +284,14 @@ export default function GuestList() {
                   >
                     <Edit2 className="h-4 w-4" />
                   </button>
+                  
+                  <button
+                    onClick={() => handleSendMessage(guest)}
+                    className="inline-flex items-center p-1 border border-transparent text-gray-600 hover:text-blue-600 focus:outline-none"
+                  >
+                    <MessageSquare className="h-4 w-4" />
+                  </button>
+                  
                   {guest.verification_status !== 'verified' && (
                     <button
                       onClick={() => handleSendVerificationLink(guest)}
@@ -340,6 +440,7 @@ export default function GuestList() {
           onGuestUpdated={handleGuestUpdated}
         />
       )}
+      {showTemplateModal && <TemplateSelectionModal />}
     </div>
   )
 } 

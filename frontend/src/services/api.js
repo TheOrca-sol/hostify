@@ -636,6 +636,207 @@ export const api = {
       console.error('Error deleting property:', error);
       return { success: false, error: error.message };
     }
+  },
+
+  // Message Templates
+  async getMessageTemplates(propertyId = null) {
+    try {
+      const token = await this.getAuthToken();
+      const url = propertyId 
+        ? `${API_BASE_URL}/messages/templates?property_id=${propertyId}`
+        : `${API_BASE_URL}/messages/templates`;
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await response.json();
+      return data || [];
+    } catch (error) {
+      console.error('Error getting message templates:', error);
+      throw error;
+    }
+  },
+
+  async createMessageTemplate(templateData) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/messages/templates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(templateData)
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating message template:', error);
+      throw error;
+    }
+  },
+
+  async updateMessageTemplate(templateId, templateData) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/messages/templates/${templateId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(templateData)
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating message template:', error);
+      throw error;
+    }
+  },
+
+  async deleteMessageTemplate(templateId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/messages/templates/${templateId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.status === 204) {
+        return { success: true };
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error deleting message template:', error);
+      throw error;
+    }
+  },
+
+  // Message Template APIs
+  async getScheduledMessages(reservationId) {
+    const response = await fetch(`${API_BASE_URL}/scheduled?reservation_id=${reservationId}`, {
+      headers: {
+        'Authorization': `Bearer ${await this.getAuthToken()}`
+      }
+    })
+    if (!response.ok) throw new Error('Failed to fetch scheduled messages')
+    return response.json()
+  },
+
+  async sendMessageNow(messageId) {
+    const response = await fetch(`${API_BASE_URL}/scheduled/${messageId}/send`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${await this.getAuthToken()}`
+      }
+    })
+    if (!response.ok) throw new Error('Failed to send message')
+    return response.json()
+  },
+
+  async cancelScheduledMessage(messageId) {
+    const response = await fetch(`${API_BASE_URL}/scheduled/${messageId}/cancel`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${await this.getAuthToken()}`
+      }
+    })
+    if (!response.ok) throw new Error('Failed to cancel message')
+    return response.json()
+  },
+
+  async scheduleReservationMessages(reservationId) {
+    const response = await fetch(`${API_BASE_URL}/schedule-reservation`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${await this.getAuthToken()}`
+      },
+      body: JSON.stringify({ reservation_id: reservationId })
+    })
+    if (!response.ok) throw new Error('Failed to schedule reservation messages')
+    return response.json()
+  },
+
+  // Contract Management
+  async getPendingContracts() {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/contracts/pending`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting pending contracts:', error);
+      return { success: false, error: 'Failed to fetch pending contracts' };
+    }
+  },
+
+  // Message Management
+  async getScheduledMessages(reservationId = null) {
+    try {
+      const token = await this.getAuthToken();
+      const url = new URL(`${API_BASE_URL}/messages/scheduled`);
+      if (reservationId && reservationId !== 'undefined') {
+        url.searchParams.append('reservation_id', reservationId);
+      }
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch scheduled messages');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting scheduled messages:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async sendScheduledMessage(messageId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/messages/scheduled/${messageId}/send`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send message');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error sending scheduled message:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async cancelScheduledMessage(messageId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/messages/scheduled/${messageId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to cancel message');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error cancelling scheduled message:', error);
+      return { success: false, error: error.message };
+    }
   }
 };
 
@@ -770,6 +971,101 @@ export const getContract = async (contractId) => {
     console.error('API Error:', error)
     return { success: false, error: error.message }
   }
+}
+
+// Message Template APIs
+export const getMessageTemplates = async (propertyId = null) => {
+  const url = propertyId 
+    ? `${API_BASE_URL}/templates?property_id=${propertyId}`
+    : `${API_BASE_URL}/templates`
+  const response = await fetch(url, {
+    headers: {
+      'Authorization': `Bearer ${await api.getAuthToken()}`
+    }
+  })
+  if (!response.ok) throw new Error('Failed to fetch message templates')
+  return response.json()
+}
+
+export const createMessageTemplate = async (templateData) => {
+  const response = await fetch(`${API_BASE_URL}/templates`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${await api.getAuthToken()}`
+    },
+    body: JSON.stringify(templateData)
+  })
+  if (!response.ok) throw new Error('Failed to create message template')
+  return response.json()
+}
+
+export const updateMessageTemplate = async (templateId, templateData) => {
+  const response = await fetch(`${API_BASE_URL}/templates/${templateId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${await api.getAuthToken()}`
+    },
+    body: JSON.stringify(templateData)
+  })
+  if (!response.ok) throw new Error('Failed to update message template')
+  return response.json()
+}
+
+export const deleteMessageTemplate = async (templateId) => {
+  const response = await fetch(`${API_BASE_URL}/templates/${templateId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${await api.getAuthToken()}`
+    }
+  })
+  if (!response.ok) throw new Error('Failed to delete message template')
+}
+
+export const getScheduledMessages = async (reservationId) => {
+  const response = await fetch(`${API_BASE_URL}/scheduled?reservation_id=${reservationId}`, {
+    headers: {
+      'Authorization': `Bearer ${await api.getAuthToken()}`
+    }
+  })
+  if (!response.ok) throw new Error('Failed to fetch scheduled messages')
+  return response.json()
+}
+
+export const sendMessageNow = async (messageId) => {
+  const response = await fetch(`${API_BASE_URL}/scheduled/${messageId}/send`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${await api.getAuthToken()}`
+    }
+  })
+  if (!response.ok) throw new Error('Failed to send message')
+  return response.json()
+}
+
+export const cancelScheduledMessage = async (messageId) => {
+  const response = await fetch(`${API_BASE_URL}/scheduled/${messageId}/cancel`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${await api.getAuthToken()}`
+    }
+  })
+  if (!response.ok) throw new Error('Failed to cancel message')
+  return response.json()
+}
+
+export const scheduleReservationMessages = async (reservationId) => {
+  const response = await fetch(`${API_BASE_URL}/schedule-reservation`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${await api.getAuthToken()}`
+    },
+    body: JSON.stringify({ reservation_id: reservationId })
+  })
+  if (!response.ok) throw new Error('Failed to schedule reservation messages')
+  return response.json()
 }
 
 export default api; 
