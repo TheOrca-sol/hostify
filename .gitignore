@@ -55,3 +55,4 @@ yarn-error.log*
 
 # Logs
 *.log backend/.env.backup
+backend/.env.backup

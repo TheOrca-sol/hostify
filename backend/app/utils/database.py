@@ -277,34 +277,49 @@ def get_guest_by_reservation(reservation_id):
 
 def update_guest(guest_id, guest_data):
     """
-    Update an existing guest record
+    Update an existing guest record using SQLAlchemy
     """
     try:
-        # Build update query dynamically based on provided fields
-        update_fields = []
-        params = []
-        for key, value in guest_data.items():
-            if key not in ['id', 'created_at', 'updated_at', 'reservation_id']:
-                update_fields.append(f"{key} = %s")
-                params.append(value)
+        # Convert guest_id to UUID if it's a string
+        guest_uuid = uuid.UUID(guest_id) if isinstance(guest_id, str) else guest_id
         
-        # Add guest_id as last parameter
-        params.append(guest_id)
+        # Get the guest record
+        guest = Guest.query.filter_by(id=guest_uuid).first()
+        if not guest:
+            return False
         
-        update_query = f"""
-            UPDATE guests
-            SET {', '.join(update_fields)},
-                updated_at = NOW()
-            WHERE id = %s
-            RETURNING id
-        """
+        # Handle date fields
+        if 'birthdate' in guest_data:
+            if isinstance(guest_data['birthdate'], str):
+                if guest_data['birthdate']:  # Only parse if not empty
+                    guest_data['birthdate'] = datetime.fromisoformat(guest_data['birthdate']).date()
+                else:
+                    guest_data['birthdate'] = None
         
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(update_query, params)
-                conn.commit()
-                return True
+        if 'verified_at' in guest_data:
+            if isinstance(guest_data['verified_at'], str):
+                if guest_data['verified_at']:  # Only parse if not empty
+                    guest_data['verified_at'] = datetime.fromisoformat(guest_data['verified_at'])
+                else:
+                    guest_data['verified_at'] = None
+        
+        # Update allowed fields
+        allowed_fields = [
+            'full_name', 'cin_or_passport', 'birthdate', 'nationality',
+            'address', 'phone', 'email', 'document_type', 'id_document_path',
+            'verification_status', 'verified_at'
+        ]
+        
+        for field in allowed_fields:
+            if field in guest_data:
+                setattr(guest, field, guest_data[field])
+        
+        guest.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
+        return True
+        
     except Exception as e:
+        db.session.rollback()
         print(f"Error updating guest: {str(e)}")
         return False
 

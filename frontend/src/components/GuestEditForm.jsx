@@ -30,9 +30,17 @@ export default function GuestEditForm({ guest, onClose, onGuestUpdated }) {
       setLoading(true)
       setError('')
 
-      const response = await api.updateGuest(guest.id, formData)
+      // Create a copy of the form data for submission
+      const submitData = { ...formData }
+      
+      // Handle empty date fields
+      if (submitData.birthdate === '') {
+        submitData.birthdate = null
+      }
+
+      const response = await api.updateGuest(guest.id, submitData)
       if (response.success) {
-        onGuestUpdated(response.guest)
+        onGuestUpdated(response.guest || guest)
         onClose()
       } else {
         throw new Error(response.error || 'Failed to update guest')

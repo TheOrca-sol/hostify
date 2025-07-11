@@ -9,6 +9,59 @@ from datetime import datetime
 
 guests_bp = Blueprint('guests', __name__)
 
+# Add CORS support for all routes in this blueprint
+@guests_bp.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', 'http://localhost:3000')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
+@guests_bp.route('/guests/<guest_id>', methods=['PUT', 'OPTIONS'])
+def update_guest_route(guest_id):
+    """
+    Update a specific guest's information
+    """
+    # Handle OPTIONS request for CORS
+    if request.method == 'OPTIONS':
+        return '', 204
+        
+    try:
+        # Verify Firebase token
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        
+        token = auth_header.split(' ')[1] if ' ' in auth_header else auth_header
+        user_id = verify_firebase_token(token)
+        if not user_id:
+            return jsonify({'success': False, 'error': 'Invalid authentication token'}), 401
+        
+        # Get guest data
+        guest_data = request.get_json()
+        if not guest_data:
+            return jsonify({'success': False, 'error': 'No guest data provided'}), 400
+        
+        # Parse birthdate if it's a string
+        if isinstance(guest_data.get('birthdate'), str):
+            guest_data['birthdate'] = datetime.fromisoformat(guest_data['birthdate']).date()
+        
+        # Update guest
+        success = update_guest(guest_id, guest_data)
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Guest updated successfully'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to update guest'}), 500
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to update guest: {str(e)}'
+        }), 500
+
 @guests_bp.route('/guests', methods=['GET'])
 def get_guests():
     """
