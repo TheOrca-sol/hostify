@@ -182,10 +182,11 @@ def get_user_reservations(user_id, filter_type=None):
         user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
         now = datetime.now(timezone.utc)
         
-        # Base query
-        query = db.session.query(Reservation).join(Property).filter(
-            Property.user_id == user_uuid
-        )
+        # Base query with eager loading of property
+        query = (db.session.query(Reservation)
+                .join(Property)
+                .options(db.joinedload(Reservation.property))
+                .filter(Property.user_id == user_uuid))
         
         # Apply date filters
         if filter_type == 'current':
@@ -245,8 +246,12 @@ def get_reservation_guests(reservation_id):
     Get all guests for a specific reservation
     """
     try:
-        reservation_uuid = uuid.UUID(reservation_id) if isinstance(reservation_id, str) else reservation_id
-        guests = Guest.query.filter_by(reservation_id=reservation_uuid).all()
+        guests = (Guest.query
+                 .filter_by(reservation_id=uuid.UUID(reservation_id) if isinstance(reservation_id, str) else reservation_id)
+                 .join(Reservation)
+                 .join(Property)
+                 .options(db.joinedload(Guest.reservation).joinedload(Reservation.property))
+                 .all())
         return [guest.to_dict() for guest in guests]
     
     except Exception as e:
@@ -255,26 +260,19 @@ def get_reservation_guests(reservation_id):
 
 def get_guest_by_reservation(reservation_id):
     """
-    Get guest record for a specific reservation
+    Get the guest associated with a reservation (assumes one guest per reservation)
     """
     try:
-        with get_db_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT id, full_name, cin_or_passport, birthdate, nationality,
-                           phone, email, id_document_path, verification_status,
-                           reservation_id, created_at, updated_at
-                    FROM guests
-                    WHERE reservation_id = %s
-                    LIMIT 1
-                """, (reservation_id,))
-                
-                guest = cur.fetchone()
-                if guest:
-                    return dict(guest)
-                return None
+        guest = (Guest.query
+                .filter_by(reservation_id=uuid.UUID(reservation_id) if isinstance(reservation_id, str) else reservation_id)
+                .join(Reservation)
+                .join(Property)
+                .options(db.joinedload(Guest.reservation).joinedload(Reservation.property))
+                .first())
+        return guest.to_dict() if guest else None
+    
     except Exception as e:
-        print(f"Error getting guest by reservation: {str(e)}")
+        print(f"Database error: {str(e)}")
         return None
 
 def update_guest(guest_id, guest_data):
@@ -388,8 +386,13 @@ def get_user_guests(firebase_uid):
             print(f"User not found for Firebase UID: {firebase_uid}")
             return []
             
-        # Now get guests using the user's UUID
-        guests = db.session.query(Guest).join(Reservation).join(Property).filter(Property.user_id == user.id).all()
+        # Now get guests using the user's UUID with eager loading of relationships
+        guests = (db.session.query(Guest)
+                 .join(Reservation)
+                 .join(Property)
+                 .options(db.joinedload(Guest.reservation).joinedload(Reservation.property))
+                 .filter(Property.user_id == user.id)
+                 .all())
         return [guest.to_dict() for guest in guests]
     
     except Exception as e:

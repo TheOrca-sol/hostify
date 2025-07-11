@@ -102,7 +102,7 @@ class Reservation(db.Model):
     messages = db.relationship('Message', backref='reservation', lazy=True)
     
     def to_dict(self):
-        return {
+        data = {
             'id': str(self.id),
             'property_id': str(self.property_id),
             'external_id': self.external_id,
@@ -118,6 +118,16 @@ class Reservation(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
         }
+        
+        # Add property information
+        if self.property:
+            data['property'] = {
+                'id': str(self.property.id),
+                'name': self.property.name,
+                'address': self.property.address
+            }
+        
+        return data
 
 class Guest(db.Model):
     """Guest information from verification process"""
@@ -145,7 +155,7 @@ class Guest(db.Model):
     messages = db.relationship('Message', backref='guest', lazy=True)
     
     def to_dict(self):
-        return {
+        data = {
             'id': str(self.id),
             'reservation_id': str(self.reservation_id),
             'verification_token': self.verification_token,
@@ -162,6 +172,18 @@ class Guest(db.Model):
             'verified_at': self.verified_at.isoformat() if self.verified_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
+        
+        # Add property information if reservation exists
+        if self.reservation and self.reservation.property:
+            data['property'] = {
+                'id': str(self.reservation.property.id),
+                'name': self.reservation.property.name,
+                'address': self.reservation.property.address
+            }
+            data['check_in'] = self.reservation.check_in.isoformat() if self.reservation.check_in else None
+            data['check_out'] = self.reservation.check_out.isoformat() if self.reservation.check_out else None
+        
+        return data
 
 class ContractTemplate(db.Model):
     """Contract templates for different properties/jurisdictions"""
