@@ -136,13 +136,16 @@ def get_scheduled_messages():
         if not user:
             return jsonify({'error': 'User not found'}), 404
 
-        # Get messages that are scheduled but not sent
-        messages = ScheduledMessage.query\
-            .join(Reservation, ScheduledMessage.reservation_id == Reservation.id)\
-            .join(Property, Reservation.property_id == Property.id)\
-            .filter(Property.user_id == uuid.UUID(user['id']))\
-            .order_by(ScheduledMessage.scheduled_for.desc())\
-            .all()
+        reservation_id = request.args.get('reservation_id')
+
+        # Base query
+        query = ScheduledMessage.query.join(Reservation).join(Property).filter(Property.user_id == user['id'])
+
+        # Filter by reservation if provided
+        if reservation_id:
+            query = query.filter(ScheduledMessage.reservation_id == reservation_id)
+
+        messages = query.order_by(ScheduledMessage.scheduled_for.desc()).all()
 
         return jsonify({
             'success': True,

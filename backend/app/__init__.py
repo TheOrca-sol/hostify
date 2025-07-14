@@ -14,6 +14,7 @@ from .routes.verification import verification_bp
 from .routes.calendar import calendar_bp
 from .routes.reservations import reservations_bp
 from .routes.messages import messages_bp
+from .routes.user import user_bp
 import os
 
 def create_app():
@@ -45,6 +46,9 @@ def create_app():
     app.register_blueprint(verification_bp, url_prefix='/api')
     app.register_blueprint(calendar_bp, url_prefix='/api')
     app.register_blueprint(reservations_bp, url_prefix='/api')
-    app.register_blueprint(messages_bp, url_prefix='/api/messages')
+    app.register_blueprint(messages_bp, url_prefix='/api')
+    app.register_blueprint(user_bp, url_prefix='/api')
     
+    
+
     return app 

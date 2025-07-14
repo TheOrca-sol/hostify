@@ -45,11 +45,7 @@ export default function GuestList() {
   const handleSendVerificationLink = async (guest) => {
     try {
       setSendingLink(guest.id)
-      const response = await api.createVerificationLinkForReservation(guest.reservation_id, {
-        guest_id: guest.id,
-        guest_name: guest.full_name,
-        guest_email: guest.email
-      })
+      const response = await api.sendVerificationLink(guest.id)
       
       if (response.success) {
         toast.success('Verification link sent successfully')

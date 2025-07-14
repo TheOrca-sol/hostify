@@ -291,20 +291,18 @@ export const api = {
   },
 
   // Verification Links (Updated for Property-Centric)
-  async createVerificationLinkForReservation(reservationId, linkData) {
+  async sendVerificationLink(guestId) {
     try {
       const token = await this.getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/reservations/${reservationId}/verification-links`, {
+      const response = await fetch(`${API_BASE_URL}/verify/${guestId}/send-link`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(linkData)
+        }
       });
       return await response.json();
     } catch (error) {
-      console.error('Error creating verification link for reservation:', error);
+      console.error('Error sending verification link:', error);
       throw error;
     }
   },
@@ -375,9 +373,9 @@ export const api = {
   },
 
   // Guest Verification Endpoints (Public - No Auth Required)
-  async getVerificationInfo(verificationToken) {
+  async getVerificationInfo(token) {
     try {
-      const response = await fetch(`${API_BASE_URL}/verify/${verificationToken}`);
+      const response = await fetch(`${API_BASE_URL}/get-verification-info/${token}`);
       return await response.json();
     } catch (error) {
       console.error('Error getting verification info:', error);
@@ -540,21 +538,19 @@ export const api = {
     }
   },
 
-  async generateContract(reservationId, guestId) {
+  async generateContractAndScheduleSms(guestId) {
     try {
       const token = await this.getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/contracts/generate`, {
+      const response = await fetch(`${API_BASE_URL}/contract/generate-and-schedule-sms/${guestId}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ reservation_id: reservationId, guest_id: guestId })
+        }
       });
       return await response.json();
     } catch (error) {
-      console.error('Error generating contract:', error);
-      return { success: false, error: error.message };
+      console.error('Error generating contract and scheduling SMS:', error);
+      throw error;
     }
   },
 
@@ -714,51 +710,6 @@ export const api = {
   },
 
   // Message Template APIs
-  async getScheduledMessages(reservationId) {
-    const response = await fetch(`${API_BASE_URL}/scheduled?reservation_id=${reservationId}`, {
-      headers: {
-        'Authorization': `Bearer ${await this.getAuthToken()}`
-      }
-    })
-    if (!response.ok) throw new Error('Failed to fetch scheduled messages')
-    return response.json()
-  },
-
-  async sendMessageNow(messageId) {
-    const response = await fetch(`${API_BASE_URL}/scheduled/${messageId}/send`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${await this.getAuthToken()}`
-      }
-    })
-    if (!response.ok) throw new Error('Failed to send message')
-    return response.json()
-  },
-
-  async cancelScheduledMessage(messageId) {
-    const response = await fetch(`${API_BASE_URL}/scheduled/${messageId}/cancel`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${await this.getAuthToken()}`
-      }
-    })
-    if (!response.ok) throw new Error('Failed to cancel message')
-    return response.json()
-  },
-
-  async scheduleReservationMessages(reservationId) {
-    const response = await fetch(`${API_BASE_URL}/schedule-reservation`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${await this.getAuthToken()}`
-      },
-      body: JSON.stringify({ reservation_id: reservationId })
-    })
-    if (!response.ok) throw new Error('Failed to schedule reservation messages')
-    return response.json()
-  },
-
   // Contract Management
   async getPendingContracts() {
     try {
@@ -839,233 +790,5 @@ export const api = {
     }
   }
 };
-
-// PDF Generation
-export const generatePDF = async (guestData) => {
-  try {
-    const { getAuthToken } = api;
-    const token = await getAuthToken();
-    
-    const response = await fetch(`${API_BASE_URL}/generate-pdf`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(guestData)
-    });
-    
-    if (!response.ok) {
-      throw new Error('PDF generation failed');
-    }
-    
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = `police-form-${guestData.full_name || 'guest'}.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
-    
-    return { success: true, message: 'PDF downloaded successfully' };
-  } catch (error) {
-    console.error('PDF generation error:', error);
-    throw error;
-  }
-};
-
-// Contract Templates
-export const createContractTemplate = async (templateData) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/contract-templates`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${await api.getAuthToken()}`
-      },
-      body: JSON.stringify(templateData)
-    })
-    return await response.json()
-  } catch (error) {
-    console.error('API Error:', error)
-    return { success: false, error: error.message }
-  }
-}
-
-export const updateContractTemplate = async (templateId, templateData) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/contract-templates/${templateId}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${await api.getAuthToken()}`
-      },
-      body: JSON.stringify(templateData)
-    })
-    return await response.json()
-  } catch (error) {
-    console.error('API Error:', error)
-    return { success: false, error: error.message }
-  }
-}
-
-export const getContractTemplates = async () => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/contract-templates`, {
-      headers: {
-        'Authorization': `Bearer ${await api.getAuthToken()}`
-      }
-    })
-    return await response.json()
-  } catch (error) {
-    console.error('API Error:', error)
-    return { success: false, error: error.message }
-  }
-}
-
-// Contracts
-export const generateContract = async (guestId) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/contracts/generate/${guestId}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${await api.getAuthToken()}`
-      }
-    })
-    return await response.json()
-  } catch (error) {
-    console.error('API Error:', error)
-    return { success: false, error: error.message }
-  }
-}
-
-export const signContract = async (contractId, signatureData) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/contracts/${contractId}/sign`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${await api.getAuthToken()}`
-      },
-      body: JSON.stringify(signatureData)
-    })
-    return await response.json()
-  } catch (error) {
-    console.error('API Error:', error)
-    return { success: false, error: error.message }
-  }
-}
-
-export const getContract = async (contractId) => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/contracts/${contractId}`, {
-      headers: {
-        'Authorization': `Bearer ${await api.getAuthToken()}`
-      }
-    })
-    return await response.json()
-  } catch (error) {
-    console.error('API Error:', error)
-    return { success: false, error: error.message }
-  }
-}
-
-// Message Template APIs
-export const getMessageTemplates = async (propertyId = null) => {
-  const url = propertyId 
-    ? `${API_BASE_URL}/templates?property_id=${propertyId}`
-    : `${API_BASE_URL}/templates`
-  const response = await fetch(url, {
-    headers: {
-      'Authorization': `Bearer ${await api.getAuthToken()}`
-    }
-  })
-  if (!response.ok) throw new Error('Failed to fetch message templates')
-  return response.json()
-}
-
-export const createMessageTemplate = async (templateData) => {
-  const response = await fetch(`${API_BASE_URL}/templates`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${await api.getAuthToken()}`
-    },
-    body: JSON.stringify(templateData)
-  })
-  if (!response.ok) throw new Error('Failed to create message template')
-  return response.json()
-}
-
-export const updateMessageTemplate = async (templateId, templateData) => {
-  const response = await fetch(`${API_BASE_URL}/templates/${templateId}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${await api.getAuthToken()}`
-    },
-    body: JSON.stringify(templateData)
-  })
-  if (!response.ok) throw new Error('Failed to update message template')
-  return response.json()
-}
-
-export const deleteMessageTemplate = async (templateId) => {
-  const response = await fetch(`${API_BASE_URL}/templates/${templateId}`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${await api.getAuthToken()}`
-    }
-  })
-  if (!response.ok) throw new Error('Failed to delete message template')
-}
-
-export const getScheduledMessages = async (reservationId) => {
-  const response = await fetch(`${API_BASE_URL}/scheduled?reservation_id=${reservationId}`, {
-    headers: {
-      'Authorization': `Bearer ${await api.getAuthToken()}`
-    }
-  })
-  if (!response.ok) throw new Error('Failed to fetch scheduled messages')
-  return response.json()
-}
-
-export const sendMessageNow = async (messageId) => {
-  const response = await fetch(`${API_BASE_URL}/scheduled/${messageId}/send`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${await api.getAuthToken()}`
-    }
-  })
-  if (!response.ok) throw new Error('Failed to send message')
-  return response.json()
-}
-
-export const cancelScheduledMessage = async (messageId) => {
-  const response = await fetch(`${API_BASE_URL}/scheduled/${messageId}/cancel`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${await api.getAuthToken()}`
-    }
-  })
-  if (!response.ok) throw new Error('Failed to cancel message')
-  return response.json()
-}
-
-export const scheduleReservationMessages = async (reservationId) => {
-  const response = await fetch(`${API_BASE_URL}/schedule-reservation`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${await api.getAuthToken()}`
-    },
-    body: JSON.stringify({ reservation_id: reservationId })
-  })
-  if (!response.ok) throw new Error('Failed to schedule reservation messages')
-  return response.json()
-}
 
 export default api; 
