@@ -196,6 +196,8 @@ export function AuthProvider({ children }) {
       setUser(firebaseUser)
       
       if (firebaseUser) {
+        // TEMP: Log Firebase UID to console for debugging
+        console.log('FIREBASE UID:', firebaseUser.uid)
         // User is authenticated, now check if they have a profile in our system
         await loadUserProfile()
       } else {

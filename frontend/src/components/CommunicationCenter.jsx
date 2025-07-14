@@ -25,19 +25,24 @@ export default function CommunicationCenter() {
 
       // Handle messages
       if (messagesRes.success) {
-        const { pending, sent } = (messagesRes.messages || []).reduce((acc, msg) => {
-          if (msg.status === 'scheduled') {
-            acc.pending.push(msg)
-          } else {
-            acc.sent.push(msg)
-          }
-          return acc
-        }, { pending: [], sent: [] })
+        if (Array.isArray(messagesRes.messages)) {
+          const { pending, sent } = messagesRes.messages.reduce((acc, msg) => {
+            if (msg.status === 'scheduled') {
+              acc.pending.push(msg);
+            } else {
+              acc.sent.push(msg);
+            }
+            return acc;
+          }, { pending: [], sent: [] });
 
-        setPendingMessages(pending)
-        setSentMessages(sent)
+          setPendingMessages(pending);
+          setSentMessages(sent);
+        } else {
+          console.error("messagesRes.messages is not an array:", messagesRes.messages);
+          toast.error('Received invalid message data from the server.');
+        }
       } else {
-        toast.error(messagesRes.error || 'Failed to load messages')
+        toast.error(messagesRes.error || 'Failed to load messages');
       }
 
       // Handle contracts

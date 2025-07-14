@@ -4,7 +4,7 @@ Contract management routes for Hostify Property Management Platform
 
 from flask import Blueprint, request, jsonify, g
 from ..utils.database import (
-    db, User, Property, Guest, Contract, ContractTemplate,
+    db, User, Property, Guest, Contract, ContractTemplate, Reservation,
     get_user_by_firebase_uid
 )
 from ..utils.auth import require_auth
@@ -176,9 +176,10 @@ def generate_contract(guest_id):
                 user_id=uuid.UUID(user['id'])
             ).first()
         else:
-            template = ContractTemplate.query.filter_by(
-                user_id=uuid.UUID(user['id']),
-                is_default=True
+            # Get default template
+            template = ContractTemplate.query.filter(
+                ContractTemplate.user_id == uuid.UUID(user['id']),
+                ContractTemplate.is_default == True
             ).first()
         
         if not template:
@@ -298,4 +299,43 @@ def get_contract(contract_id):
         return jsonify({
             'success': False,
             'error': f'Failed to get contract: {str(e)}'
+        }), 500
+
+@contracts_bp.route('/contracts/pending', methods=['GET'])
+@require_auth
+def get_pending_contracts():
+    """Get all pending contracts for the user"""
+    try:
+        # Get user record
+        user = get_user_by_firebase_uid(g.user_id)
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+        # Get all properties for the user
+        user_properties = Property.query.filter_by(user_id=uuid.UUID(user['id'])).all()
+        if not user_properties:
+            return jsonify({'success': True, 'contracts': []})
+
+        # Get all reservations for those properties
+        property_ids = [p.id for p in user_properties]
+        user_reservations = Reservation.query.filter(Reservation.property_id.in_(property_ids)).all()
+        if not user_reservations:
+            return jsonify({'success': True, 'contracts': []})
+
+        # Get all contracts for those reservations with a 'pending' status
+        reservation_ids = [r.id for r in user_reservations]
+        pending_contracts = Contract.query.filter(
+            Contract.reservation_id.in_(reservation_ids),
+            Contract.contract_status == 'pending'
+        ).all()
+
+        return jsonify({
+            'success': True,
+            'contracts': [c.to_dict() for c in pending_contracts]
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get pending contracts: {str(e)}'
         }), 500 
