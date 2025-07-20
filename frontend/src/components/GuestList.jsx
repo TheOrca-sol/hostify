@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { api } from '../services/api'
+import { api, API_BASE_URL } from '../services/api'
 import { toast } from '../components/Toaster'
 import { FileText, Send, RefreshCw, Edit2, Search, SlidersHorizontal, UserPlus } from 'lucide-react'
 import GuestEditForm from './GuestEditForm'
@@ -104,6 +104,20 @@ export default function GuestList() {
     }
   }
 
+  const handleViewDocument = async (guest) => {
+    try {
+      const tokenResponse = await api.generateFileToken();
+      if (tokenResponse.success) {
+        const fileUrl = `${API_BASE_URL}/uploads/${guest.id_document_path.split('/').slice(-1)[0]}?token=${tokenResponse.token}`;
+        window.open(fileUrl, '_blank');
+      } else {
+        toast.error('Could not authorize file view.');
+      }
+    } catch (error) {
+      toast.error('Error preparing file for viewing.');
+    }
+  };
+
   const GuestCard = ({ guest }) => {
     const status = getStatusInfo(guest)
     return (
@@ -136,14 +150,12 @@ export default function GuestList() {
               <Edit2 className="h-4 w-4 inline mr-1" /> Edit
             </button>
             {guest.id_document_path && (
-              <a
-                href={`${api.API_BASE_URL}/uploads/${guest.id_document_path.split('/').slice(-1)[0]}`}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                onClick={() => handleViewDocument(guest)}
                 className="text-sm font-medium text-gray-600 hover:text-gray-800"
               >
                 View Document
-              </a>
+              </button>
             )}
           </div>
           {guest.verification_status === 'pending' && (

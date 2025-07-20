@@ -16,6 +16,7 @@ from .routes.reservations import reservations_bp
 from .routes.messages import messages_bp
 from .routes.user import user_bp
 from .routes.dashboard import dashboard_bp
+from .routes.auth import auth_bp
 import os
 
 def create_app():
@@ -24,6 +25,7 @@ def create_app():
     # Configure database
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'a-super-secret-key-for-dev')
     
     # Configure CORS
     CORS(app, resources={
@@ -50,6 +52,7 @@ def create_app():
     app.register_blueprint(messages_bp, url_prefix='/api')
     app.register_blueprint(user_bp, url_prefix='/api')
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')
     
     
 

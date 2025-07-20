@@ -2,12 +2,13 @@
 File upload routes for Hostify Property Management Platform
 """
 
-from flask import Blueprint, request, jsonify, g, send_from_directory
+from flask import Blueprint, request, jsonify, g, send_from_directory, current_app
 from werkzeug.utils import secure_filename
 from ..utils.database import get_user_by_firebase_uid, db, Guest, Reservation, Property
 from ..utils.auth import require_auth
 import os
 import uuid
+import jwt
 
 upload_bp = Blueprint('upload', __name__)
 
@@ -17,24 +18,23 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @upload_bp.route('/uploads/<path:filename>')
-@require_auth
 def serve_upload(filename):
     """
-    Serve an uploaded file securely, checking for user authorization.
+    Serve an uploaded file securely, using a temporary token for authorization.
     """
-    try:
-        user = get_user_by_firebase_uid(g.user_id)
-        if not user:
-            return jsonify({'success': False, 'error': 'User not found'}), 404
+    token = request.args.get('token')
+    if not token:
+        return "Authentication token required.", 401
 
-        # The guest's ID should be part of the file's path or name.
-        # Here, we assume the file path stored in the DB is relative and includes the guest ID.
-        # Let's find the guest by the document path.
+    try:
+        secret_key = current_app.config.get('SECRET_KEY', 'your-default-secret-key')
+        payload = jwt.decode(token, secret_key, algorithms=['HS256'])
+        firebase_uid = payload['sub']
         
-        # This is not perfectly secure if paths are predictable, but works for this structure.
-        # A better approach would be to query the guest by ID and then check the path.
-        # We assume the filename format is <guest_id>_original_filename.ext
-        
+        user = get_user_by_firebase_uid(firebase_uid)
+        if not user:
+            return "Invalid user.", 403
+
         guest_id_str = filename.split('_')[0]
         guest_id = uuid.UUID(guest_id_str)
 
@@ -45,14 +45,22 @@ def serve_upload(filename):
                  .first())
 
         if not guest:
-            return "Access denied or file not found", 403
+            return "Access denied or file not found.", 403
 
-        # The actual filename is after the first underscore
-        actual_filename = filename.split('_', 1)[1]
-        directory = os.path.abspath(os.path.join(os.getcwd(), 'uploads', str(guest.id)))
+        # Use the stored path directly for robustness
+        full_path = guest.id_document_path
+        if not full_path or not os.path.isfile(full_path):
+            return "File not found on server.", 404
+            
+        directory = os.path.dirname(full_path)
+        actual_filename = os.path.basename(full_path)
 
         return send_from_directory(directory, actual_filename, as_attachment=False)
 
+    except jwt.ExpiredSignatureError:
+        return "Token has expired.", 401
+    except jwt.InvalidTokenError:
+        return "Invalid token.", 401
     except Exception as e:
         return str(e), 500
 

@@ -1,5 +1,5 @@
 // API configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // API service functions
 export const api = {
@@ -753,6 +753,23 @@ export const api = {
     } catch (error) {
       console.error('Error getting dashboard stats:', error);
       return { success: false, error: 'Failed to fetch dashboard stats' };
+    }
+  },
+
+  // Auth
+  async generateFileToken() {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/auth/generate-file-token`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating file token:', error);
+      return { success: false, error: 'Failed to generate file token' };
     }
   },
 
