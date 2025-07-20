@@ -9,6 +9,7 @@ from .models import db
 from .routes.guests import guests_bp
 from .routes.properties import properties_bp
 from .routes.contracts import contracts_bp
+from .routes.contract_templates import contract_templates_bp
 from .routes.upload import upload_bp
 from .routes.verification import verification_bp
 from .routes.calendar import calendar_bp
@@ -44,7 +45,8 @@ def create_app():
     # Register blueprints
     app.register_blueprint(guests_bp, url_prefix='/api')
     app.register_blueprint(properties_bp, url_prefix='/api')
-    app.register_blueprint(contracts_bp, url_prefix='/api')
+    app.register_blueprint(contracts_bp, url_prefix='/api/contracts')
+    app.register_blueprint(contract_templates_bp, url_prefix='/api/contract-templates')
     app.register_blueprint(upload_bp, url_prefix='/api')
     app.register_blueprint(verification_bp, url_prefix='/api')
     app.register_blueprint(calendar_bp, url_prefix='/api')
