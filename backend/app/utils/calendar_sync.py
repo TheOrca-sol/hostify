@@ -4,6 +4,7 @@ import requests
 from icalendar import Calendar
 from datetime import datetime, timedelta
 from app.models import db, Reservation, SyncLog, Guest
+from .ical_parser import parse_ical_from_url
 import logging
 import uuid
 
@@ -31,57 +32,48 @@ def sync_property_calendar(property):
         return False
         
     try:
-        # Fetch the calendar
-        response = requests.get(property.ical_url)
-        response.raise_for_status()
-        
-        # Parse the calendar
-        calendar = Calendar.from_ical(response.text)
+        # Use the centralized iCal parser
+        parsed_events = parse_ical_from_url(property.ical_url)
         
         # Process each event
-        for event in calendar.walk('VEVENT'):
-            start_date = event.get('dtstart').dt
-            end_date = event.get('dtend').dt
-            summary = str(event.get('summary', ''))
-            uid = str(event.get('uid', ''))
-            
-            # Convert to datetime if date
-            if not isinstance(start_date, datetime):
-                start_date = datetime.combine(start_date, datetime.min.time())
-            if not isinstance(end_date, datetime):
-                end_date = datetime.combine(end_date, datetime.min.time())
-            
+        for event_data in parsed_events:
+            # Skip blocked or cancelled events
+            if event_data['status'] != 'confirmed':
+                continue
+
             # Check if reservation exists
             reservation = Reservation.query.filter_by(
                 property_id=property.id,
-                external_id=uid
+                external_id=event_data['external_id']
             ).first()
             
             if reservation:
                 # Update existing reservation
-                reservation.check_in = start_date
-                reservation.check_out = end_date
-                reservation.status = 'confirmed'  # Default to confirmed for calendar events
-                reservation.guest_name_partial = summary if summary else reservation.guest_name_partial
+                reservation.check_in = event_data['check_in']
+                reservation.check_out = event_data['check_out']
+                reservation.status = event_data['status']
+                reservation.guest_name_partial = event_data['guest_name']
+                reservation.raw_data = event_data['raw_data']
             else:
                 # Create new reservation
                 reservation = Reservation(
                     property_id=property.id,
-                    check_in=start_date,
-                    check_out=end_date,
-                    external_id=uid,
-                    status='confirmed',
+                    check_in=event_data['check_in'],
+                    check_out=event_data['check_out'],
+                    external_id=event_data['external_id'],
+                    status=event_data['status'],
                     sync_source='ical',
-                    guest_name_partial=summary if summary else None
+                    guest_name_partial=event_data['guest_name'],
+                    raw_data=event_data['raw_data']
                 )
                 db.session.add(reservation)
                 db.session.flush()  # Get the reservation ID
                 
                 # Create a guest record if we have a guest name
-                if summary:
+                if event_data['guest_name']:
                     guest = Guest(
                         reservation_id=reservation.id,
-                        full_name=summary,
+                        full_name=event_data['guest_name'],
                         verification_status='pending',
                         verification_token=str(uuid.uuid4())  # Generate a unique token
                     )
@@ -98,4 +90,5 @@ def sync_property_calendar(property):
         
     except Exception as e:
         logging.error(f"Error syncing calendar for property {property.id}: {str(e)}")
+        db.session.rollback()
         return False 
