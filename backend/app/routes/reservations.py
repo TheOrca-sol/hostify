@@ -75,6 +75,7 @@ def create_reservation_route():
 def get_reservations():
     """
     Get all reservations for the authenticated user (across all properties)
+    with support for pagination, searching, and filtering.
     """
     try:
         # Get user record
@@ -82,49 +83,29 @@ def get_reservations():
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
+        # Get query parameters
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        search_query = request.args.get('search', None, type=str)
+        property_id = request.args.get('property_id', None, type=str)
+        filter_type = request.args.get('filter_type', None, type=str)
+
         # Get reservations from database
-        reservations = get_user_reservations(user['id'])
-        
-        # Optional filtering by date range
-        start_date = request.args.get('start_date')
-        end_date = request.args.get('end_date')
-        
-        if start_date or end_date:
-            filtered_reservations = []
-            for reservation in reservations:
-                # Handle both datetime objects and string dates
-                check_in_raw = reservation['check_in']
-                check_out_raw = reservation['check_out']
-                
-                if isinstance(check_in_raw, datetime):
-                    check_in = check_in_raw
-                else:
-                    check_in = datetime.fromisoformat(str(check_in_raw).replace('Z', '+00:00'))
-                    
-                if isinstance(check_out_raw, datetime):
-                    check_out = check_out_raw
-                else:
-                    check_out = datetime.fromisoformat(str(check_out_raw).replace('Z', '+00:00'))
-                
-                # Check if reservation overlaps with requested date range
-                if start_date:
-                    filter_start = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-                    if check_out < filter_start:
-                        continue
-                
-                if end_date:
-                    filter_end = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-                    if check_in > filter_end:
-                        continue
-                
-                filtered_reservations.append(reservation)
-            
-            reservations = filtered_reservations
+        result = get_user_reservations(
+            user_id=user['id'],
+            page=page,
+            per_page=per_page,
+            search_query=search_query,
+            property_id=property_id,
+            filter_type=filter_type
+        )
         
         return jsonify({
             'success': True,
-            'reservations': reservations,
-            'total': len(reservations)
+            'reservations': result['reservations'],
+            'total': result['total'],
+            'pages': result['pages'],
+            'current_page': result['current_page']
         })
     
     except Exception as e:

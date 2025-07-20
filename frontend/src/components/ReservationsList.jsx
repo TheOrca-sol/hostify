@@ -1,235 +1,198 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { api } from '../services/api'
+import { Search, SlidersHorizontal } from 'lucide-react'
+import { useDebounce } from '../hooks/useDebounce'
 
 export default function ReservationsList() {
   const [reservations, setReservations] = useState([])
-  const [upcomingReservations, setUpcomingReservations] = useState([])
-  const [currentReservations, setCurrentReservations] = useState([])
   const [loading, setLoading] = useState(true)
-  const [activeView, setActiveView] = useState('all')
+  const [error, setError] = useState(null)
+
+  // Filtering and Pagination state
+  const [properties, setProperties] = useState([])
+  const [activeFilter, setActiveFilter] = useState('all')
+  const [selectedProperty, setSelectedProperty] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalReservations, setTotalReservations] = useState(0)
+
+  const debouncedSearchQuery = useDebounce(searchQuery, 500)
+
+  const loadReservations = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const params = {
+        page: currentPage,
+        per_page: 9,
+        search: debouncedSearchQuery,
+        property_id: selectedProperty,
+        filter_type: activeFilter === 'all' ? null : activeFilter,
+      }
+
+      const result = await api.getReservations(params)
+      
+      if (result.success) {
+        setReservations(result.reservations || [])
+        setTotalPages(result.pages || 1)
+        setTotalReservations(result.total || 0)
+      } else {
+        setError(result.error || 'Failed to load reservations')
+      }
+    } catch (err) {
+      console.error('Error loading reservations:', err)
+      setError('An unexpected error occurred.')
+    } finally {
+      setLoading(false)
+    }
+  }, [currentPage, debouncedSearchQuery, selectedProperty, activeFilter])
 
   useEffect(() => {
     loadReservations()
+  }, [loadReservations])
+
+  useEffect(() => {
+    const loadProperties = async () => {
+      const result = await api.getProperties()
+      if (result.success) {
+        setProperties(result.properties || [])
+      }
+    }
+    loadProperties()
   }, [])
 
-  const loadReservations = async () => {
-    try {
-      setLoading(true)
-      
-      // Load all reservations
-      const allResult = await api.getReservations()
-      if (allResult.success) {
-        setReservations(allResult.reservations || [])
-      }
-      
-      // Load upcoming reservations
-      const upcomingResult = await api.getUpcomingReservations()
-      if (upcomingResult.success) {
-        setUpcomingReservations(upcomingResult.reservations || [])
-      }
-      
-      // Load current reservations
-      const currentResult = await api.getCurrentReservations()
-      if (currentResult.success) {
-        setCurrentReservations(currentResult.reservations || [])
-      }
-      
-    } catch (error) {
-      console.error('Error loading reservations:', error)
-    } finally {
-      setLoading(false)
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage)
     }
   }
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A'
-    try {
-      const date = new Date(dateString)
-      return date.toLocaleDateString('en-US', {
-        weekday: 'short',
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      })
-    } catch {
-      return 'Invalid Date'
-    }
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric', month: 'short', day: 'numeric'
+    })
   }
 
-  const getReservationStatus = (reservation) => {
+  const getStatusPill = (reservation) => {
+    const now = new Date()
     const checkIn = new Date(reservation.check_in)
     const checkOut = new Date(reservation.check_out)
-    const now = new Date()
-    
-    if (now < checkIn) {
-      return { status: 'upcoming', color: 'bg-blue-100 text-blue-800', label: 'Upcoming' }
-    } else if (now >= checkIn && now <= checkOut) {
-      return { status: 'current', color: 'bg-green-100 text-green-800', label: 'Current' }
+
+    if (now >= checkIn && now <= checkOut) {
+      return { label: 'Current', color: 'bg-green-100 text-green-800' }
+    } else if (now < checkIn) {
+      return { label: 'Upcoming', color: 'bg-blue-100 text-blue-800' }
     } else {
-      return { status: 'past', color: 'bg-gray-100 text-gray-800', label: 'Past' }
+      return { label: 'Past', color: 'bg-gray-100 text-gray-800' }
     }
   }
 
   const ReservationCard = ({ reservation }) => {
-    const statusInfo = getReservationStatus(reservation)
-    
+    const status = getStatusPill(reservation)
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3 min-w-0 flex-1">
-            <div className="h-10 w-10 flex-shrink-0 bg-blue-100 rounded-full flex items-center justify-center">
-              <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a4 4 0 118 0v4m-4 12V11m0 0l-3 3m3-3l3 3" />
-              </svg>
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="text-lg font-medium text-gray-900 truncate">
+      <div className="bg-white border border-gray-200 rounded-lg p-5 flex flex-col justify-between hover:shadow-lg transition-shadow duration-200">
+        <div>
+          <div className="flex items-start justify-between mb-3">
+            <div className="min-w-0">
+              <h3 className="text-md font-semibold text-gray-800 truncate">
                 {reservation.guest_name_partial || 'Guest'}
               </h3>
-              <p className="text-sm text-gray-500 truncate">
-                {reservation.property?.name || 'Unknown Property'} 
+              <p className="text-xs text-gray-500 truncate">
+                {reservation.property?.name || 'Unknown Property'}
                 {reservation.external_id && ` • ${reservation.external_id}`}
               </p>
             </div>
-          </div>
-          <div className="ml-2 flex-shrink-0">
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.color}`}>
-              {statusInfo.label}
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${status.color}`}>
+              {status.label}
             </span>
           </div>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="min-w-0">
-            <p className="text-sm text-gray-500">Check-in</p>
-            <p className="text-sm font-medium text-gray-900 truncate">
-              {formatDate(reservation.check_in)}
-            </p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm text-gray-500">Check-out</p>
-            <p className="text-sm font-medium text-gray-900 truncate">
-              {formatDate(reservation.check_out)}
-            </p>
+          <div className="space-y-2 text-sm">
+            <p><strong>Check-in:</strong> {formatDate(reservation.check_in)}</p>
+            <p><strong>Check-out:</strong> {formatDate(reservation.check_out)}</p>
+            {reservation.phone_partial && <p><strong>Phone:</strong> {reservation.phone_partial}</p>}
           </div>
         </div>
-        
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="min-w-0">
-            <p className="text-sm text-gray-500">Property</p>
-            <div>
-              <p className="text-sm font-medium text-gray-900 truncate">
-                {reservation.property && reservation.property.name ? reservation.property.name : 'Unknown Property'}
-              </p>
-              {reservation.property && reservation.property.address && (
-                <p className="text-xs text-gray-500 truncate mt-0.5">
-                  {reservation.property.address}
-                </p>
-              )}
-            </div>
-          </div>
-          {reservation.platform && (
-            <div className="min-w-0">
-              <p className="text-sm text-gray-500">Platform</p>
-              <p className="text-sm font-medium text-gray-900 truncate capitalize">
-                {reservation.platform}
-              </p>
-            </div>
-          )}
-        </div>
-        
-        {reservation.phone_partial && (
-          <div className="mb-4 min-w-0">
-            <p className="text-sm text-gray-500">Contact</p>
-            <p className="text-sm font-medium text-gray-900 truncate">
-              {reservation.phone_partial}
-            </p>
-          </div>
-        )}
-        
-        <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-          <div className="text-xs text-gray-500 truncate min-w-0 flex-1">
-            Status: {reservation.status || 'confirmed'}
-          </div>
-          <button className="text-sm text-blue-600 hover:text-blue-500 font-medium flex-shrink-0 ml-2">
-            View Details
-          </button>
-        </div>
+        <button className="mt-4 w-full text-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+          View Details
+        </button>
       </div>
     )
   }
 
-  if (loading) {
-    return (
-      <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">Loading reservations...</p>
-      </div>
-    )
-  }
-
-  const views = [
-    { id: 'all', name: 'All Reservations', count: reservations.length },
-    { id: 'upcoming', name: 'Upcoming', count: upcomingReservations.length },
-    { id: 'current', name: 'Current', count: currentReservations.length }
-  ]
-
-  const getCurrentReservations = () => {
-    switch (activeView) {
-      case 'upcoming':
-        return upcomingReservations
-      case 'current':
-        return currentReservations
-      default:
-        return reservations
-    }
-  }
-
-  const currentReservationList = getCurrentReservations()
+  const PaginationControls = () => (
+    <div className="flex items-center justify-between mt-6">
+      <button
+        onClick={() => handlePageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+      >
+        Previous
+      </button>
+      <span className="text-sm text-gray-700">
+        Page {currentPage} of {totalPages}
+      </span>
+      <button
+        onClick={() => handlePageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+      >
+        Next
+      </button>
+    </div>
+  )
 
   return (
     <div className="space-y-6">
-      {/* View Toggle */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-medium text-gray-900">Reservations</h2>
-        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-          {views.map((view) => (
-            <button
-              key={view.id}
-              onClick={() => setActiveView(view.id)}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                activeView === view.id
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="w-full md:w-1/3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by name or ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-5 w-5 text-gray-500" />
+            <select
+              value={selectedProperty}
+              onChange={(e) => setSelectedProperty(e.target.value)}
+              className="border border-gray-300 rounded-lg py-2 px-3"
             >
-              {view.name} ({view.count})
-            </button>
-          ))}
+              <option value="">All Properties</option>
+              {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+            <button onClick={() => setActiveFilter('all')} className={`px-3 py-1.5 text-sm font-medium rounded-md ${activeFilter === 'all' ? 'bg-white shadow' : ''}`}>All</button>
+            <button onClick={() => setActiveFilter('upcoming')} className={`px-3 py-1.5 text-sm font-medium rounded-md ${activeFilter === 'upcoming' ? 'bg-white shadow' : ''}`}>Upcoming</button>
+            <button onClick={() => setActiveFilter('current')} className={`px-3 py-1.5 text-sm font-medium rounded-md ${activeFilter === 'current' ? 'bg-white shadow' : ''}`}>Current</button>
+          </div>
         </div>
       </div>
 
-      {/* Reservations Grid */}
-      {currentReservationList.length === 0 ? (
-        <div className="text-center py-12">
-          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3a4 4 0 118 0v4m-4 12V11m0 0l-3 3m3-3l3 3" />
-          </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No reservations found</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            {activeView === 'all' 
-              ? 'No reservations have been synced yet.'
-              : `No ${activeView} reservations at this time.`
-            }
-          </p>
-        </div>
+      {loading ? (
+        <div className="text-center py-12">Loading...</div>
+      ) : error ? (
+        <div className="text-center py-12 text-red-500">{error}</div>
+      ) : reservations.length === 0 ? (
+        <div className="text-center py-12">No reservations found.</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {currentReservationList.map((reservation) => (
-            <ReservationCard key={reservation.id} reservation={reservation} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {reservations.map((res) => <ReservationCard key={res.id} reservation={res} />)}
+          </div>
+          <PaginationControls />
+        </>
       )}
     </div>
   )
-} 
+}

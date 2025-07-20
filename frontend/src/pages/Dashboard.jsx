@@ -25,44 +25,33 @@ export default function Dashboard() {
 
   const loadDashboardData = async () => {
     try {
-      setLoading(true)
+      setLoading(true);
+      const statsResult = await api.getDashboardStats();
       
-      // Load properties
-      const propertiesResult = await api.getProperties()
-      const properties = propertiesResult.success ? propertiesResult.properties || [] : []
-      
-      // Load reservations
-      const reservationsResult = await api.getReservations()
-      const reservations = reservationsResult.success ? reservationsResult.reservations || [] : []
-      
-      // Load upcoming reservations
-      const upcomingResult = await api.getUpcomingReservations()
-      const upcomingReservations = upcomingResult.success ? upcomingResult.reservations || [] : []
-      
-      // Calculate stats
-      setStats({
-        totalProperties: properties.length,
-        totalReservations: reservations.length,
-        upcomingReservations: upcomingReservations.length,
-        activeGuests: reservations.filter(r => r.status === 'active').length
-      })
-      
-      // Set recent activity
-      setRecentActivity([
-        ...reservations.slice(0, 5).map(r => ({
-          type: 'reservation',
-          title: `New reservation: ${r.guest_name_partial || 'Guest'}`,
-          timestamp: r.created_at,
-          property: properties.find(p => p.id === r.property_id)?.name || 'Unknown Property'
-        }))
-      ])
-      
+      if (statsResult.success) {
+        setStats(statsResult.stats);
+      } else {
+        console.error('Failed to load dashboard stats:', statsResult.error);
+      }
+
+      // Simplified recent activity (can be enhanced later)
+      const reservationsResult = await api.getReservations({ page: 1, per_page: 5 });
+      if (reservationsResult.success) {
+        setRecentActivity(
+          reservationsResult.reservations.map(r => ({
+            type: 'reservation',
+            title: `New reservation: ${r.guest_name_partial || 'Guest'}`,
+            timestamp: r.created_at,
+            property: r.property?.name || 'Unknown Property'
+          }))
+        );
+      }
     } catch (error) {
-      console.error('Error loading dashboard data:', error)
+      console.error('Error loading dashboard data:', error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: BarChart },

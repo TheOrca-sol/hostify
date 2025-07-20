@@ -15,6 +15,7 @@ from .routes.calendar import calendar_bp
 from .routes.reservations import reservations_bp
 from .routes.messages import messages_bp
 from .routes.user import user_bp
+from .routes.dashboard import dashboard_bp
 import os
 
 def create_app():
@@ -48,6 +49,7 @@ def create_app():
     app.register_blueprint(reservations_bp, url_prefix='/api')
     app.register_blueprint(messages_bp, url_prefix='/api')
     app.register_blueprint(user_bp, url_prefix='/api')
+    app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
     
     
 

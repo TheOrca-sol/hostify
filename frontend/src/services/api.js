@@ -128,10 +128,17 @@ export const api = {
   },
 
   // Reservation Management (Updated from Bookings)
-  async getReservations() {
+  async getReservations(params = {}) {
     try {
       const token = await this.getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/reservations`, {
+      const url = new URL(`${API_BASE_URL}/reservations`);
+      Object.keys(params).forEach(key => {
+        if (params[key]) {
+          url.searchParams.append(key, params[key]);
+        }
+      });
+      
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -207,10 +214,17 @@ export const api = {
   },
 
   // Guest Management (Updated for Property-Centric)
-  async getGuests() {
+  async getGuests(params = {}) {
     try {
       const token = await this.getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/guests`, {
+      const url = new URL(`${API_BASE_URL}/guests`);
+      Object.keys(params).forEach(key => {
+        if (params[key]) {
+          url.searchParams.append(key, params[key]);
+        }
+      });
+
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -722,7 +736,23 @@ export const api = {
       return await response.json();
     } catch (error) {
       console.error('Error getting pending contracts:', error);
-      return { success: false, error: 'Failed to fetch pending contracts' };
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Dashboard
+  async getDashboardStats() {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/dashboard/stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting dashboard stats:', error);
+      return { success: false, error: 'Failed to fetch dashboard stats' };
     }
   },
 

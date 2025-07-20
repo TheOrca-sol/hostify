@@ -184,9 +184,9 @@ def get_property_reservations(property_id):
         print(f"Database error: {str(e)}")
         return []
 
-def get_user_reservations(user_id, filter_type=None):
+def get_user_reservations(user_id, page=1, per_page=10, search_query=None, property_id=None, filter_type=None):
     """
-    Get all reservations for all user properties
+    Get all reservations for all user properties with pagination and filtering.
     filter_type can be: None (all), 'current', or 'upcoming'
     """
     try:
@@ -199,38 +199,50 @@ def get_user_reservations(user_id, filter_type=None):
                 .options(db.joinedload(Reservation.property))
                 .filter(Property.user_id == user_uuid))
         
+        # Apply search filter
+        if search_query:
+            search_term = f"%{search_query}%"
+            query = query.filter(
+                db.or_(
+                    Reservation.guest_name_partial.ilike(search_term),
+                    Reservation.external_id.ilike(search_term)
+                )
+            )
+
+        # Apply property filter
+        if property_id:
+            query = query.filter(Reservation.property_id == uuid.UUID(property_id))
+
         # Apply date filters
         if filter_type == 'current':
-            # Current reservations: check_in <= now <= check_out
-            query = query.filter(
-                Reservation.check_in <= now,
-                Reservation.check_out >= now
-            )
+            query = query.filter(Reservation.check_in <= now, Reservation.check_out >= now)
         elif filter_type == 'upcoming':
-            # Upcoming reservations: check_in > now
-            query = query.filter(
-                Reservation.check_in > now
-            )
+            query = query.filter(Reservation.check_in > now)
         
         # Order by check-in date
         query = query.order_by(Reservation.check_in.desc())
         
-        reservations = query.all()
+        # Paginate the results
+        paginated_reservations = query.paginate(page=page, per_page=per_page, error_out=False)
         
         # Convert to dict and dynamically set status
         reservation_list = []
-        for r in reservations:
+        for r in paginated_reservations.items:
             r_dict = r.to_dict()
-            # Dynamically set status for frontend
             if r.check_in <= now <= r.check_out:
                 r_dict['status'] = 'active'
             reservation_list.append(r_dict)
             
-        return reservation_list
+        return {
+            'reservations': reservation_list,
+            'total': paginated_reservations.total,
+            'pages': paginated_reservations.pages,
+            'current_page': paginated_reservations.page
+        }
     
     except Exception as e:
         print(f"Database error: {str(e)}")
-        return []
+        return {'reservations': [], 'total': 0, 'pages': 0, 'current_page': 1}
 
 # Guest Management (Updated for new structure)
 def create_guest(reservation_id, **kwargs):
@@ -411,29 +423,47 @@ def save_guest(guest_data):
     print("Warning: save_guest is deprecated, use create_guest with reservation_id")
     return None
 
-def get_user_guests(firebase_uid):
+def get_user_guests(firebase_uid, page=1, per_page=10, search_query=None, property_id=None):
     """
-    Get all guests for user through reservations using Firebase UID
+    Get all guests for a user with pagination and filtering.
     """
     try:
-        # First get the user record by Firebase UID
         user = User.query.filter_by(firebase_uid=firebase_uid).first()
         if not user:
-            print(f"User not found for Firebase UID: {firebase_uid}")
-            return []
-            
-        # Now get guests using the user's UUID with eager loading of relationships
-        guests = (db.session.query(Guest)
+            return {'guests': [], 'total': 0, 'pages': 0, 'current_page': 1}
+
+        query = (db.session.query(Guest)
                  .join(Reservation)
                  .join(Property)
                  .options(db.joinedload(Guest.reservation).joinedload(Reservation.property))
-                 .filter(Property.user_id == user.id)
-                 .all())
-        return [guest.to_dict() for guest in guests]
-    
+                 .filter(Property.user_id == user.id))
+
+        if search_query:
+            search_term = f"%{search_query}%"
+            query = query.filter(
+                db.or_(
+                    Guest.full_name.ilike(search_term),
+                    Guest.email.ilike(search_term),
+                    Guest.phone.ilike(search_term),
+                    Reservation.external_id.ilike(search_term)
+                )
+            )
+
+        if property_id:
+            query = query.filter(Property.id == uuid.UUID(property_id))
+
+        paginated_guests = query.order_by(Guest.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+
+        return {
+            'guests': [guest.to_dict() for guest in paginated_guests.items],
+            'total': paginated_guests.total,
+            'pages': paginated_guests.pages,
+            'current_page': paginated_guests.page
+        }
+
     except Exception as e:
         print(f"Database error: {str(e)}")
-        return []
+        return {'guests': [], 'total': 0, 'pages': 0, 'current_page': 1}
 
 def save_guest_verification(guest_data):
     """
@@ -667,4 +697,35 @@ def delete_property(property_id, user_id):
     
     except Exception as e:
         print(f"Database error: {str(e)}")
-        return False 
+        return False
+
+def get_user_dashboard_stats(user_id):
+    """
+    Get dashboard statistics for a user.
+    """
+    try:
+        user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
+        now = datetime.now(timezone.utc)
+
+        total_properties = db.session.query(Property).filter_by(user_id=user_uuid).count()
+        
+        reservations_query = (db.session.query(Reservation)
+                              .join(Property)
+                              .filter(Property.user_id == user_uuid))
+        
+        total_reservations = reservations_query.count()
+        
+        upcoming_reservations = reservations_query.filter(Reservation.check_in > now).count()
+        
+        active_guests = reservations_query.filter(Reservation.check_in <= now, Reservation.check_out >= now).count()
+
+        return {
+            'totalProperties': total_properties,
+            'totalReservations': total_reservations,
+            'upcomingReservations': upcoming_reservations,
+            'activeGuests': active_guests
+        }
+
+    except Exception as e:
+        print(f"Database error in get_user_dashboard_stats: {str(e)}")
+        return None 

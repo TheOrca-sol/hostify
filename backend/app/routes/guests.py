@@ -57,16 +57,28 @@ def update_guest_route(guest_id):
 @require_auth
 def get_guests():
     """
-    Get all guests for the authenticated user (across all properties)
+    Get all guests for the authenticated user with pagination and filtering.
     """
     try:
-        # Get guests from database using Firebase UID from g object
-        guests = get_user_guests(g.user_id)
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
+        search_query = request.args.get('search', None, type=str)
+        property_id = request.args.get('property_id', None, type=str)
+
+        result = get_user_guests(
+            firebase_uid=g.user_id,
+            page=page,
+            per_page=per_page,
+            search_query=search_query,
+            property_id=property_id
+        )
         
         return jsonify({
             'success': True,
-            'guests': guests,
-            'total': len(guests)
+            'guests': result['guests'],
+            'total': result['total'],
+            'pages': result['pages'],
+            'current_page': result['current_page']
         })
     
     except Exception as e:

@@ -1,435 +1,218 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { api } from '../services/api'
 import { toast } from '../components/Toaster'
-import { FileText, Send, RefreshCw, Edit2, Mail, MessageSquare, X } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { FileText, Send, RefreshCw, Edit2, Search, SlidersHorizontal, UserPlus } from 'lucide-react'
 import GuestEditForm from './GuestEditForm'
+import { useDebounce } from '../hooks/useDebounce'
 
 export default function GuestList() {
   const [guests, setGuests] = useState([])
   const [loading, setLoading] = useState(true)
-  const [sendingLink, setSendingLink] = useState(null)
-  const [generatingContract, setGeneratingContract] = useState(null)
-  const [editingGuest, setEditingGuest] = useState(null)
   const [error, setError] = useState(null)
+  
+  // State for modals and actions
+  const [sendingLink, setSendingLink] = useState(null)
+  const [editingGuest, setEditingGuest] = useState(null)
 
-  const [selectedGuest, setSelectedGuest] = useState(null)
-  const [showTemplateModal, setShowTemplateModal] = useState(false)
-  const [availableTemplates, setAvailableTemplates] = useState([])
-  const [sendingMessage, setSendingMessage] = useState(false)
+  // Filtering and Pagination state
+  const [properties, setProperties] = useState([])
+  const [selectedProperty, setSelectedProperty] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  
+  const debouncedSearchQuery = useDebounce(searchQuery, 500)
 
-  useEffect(() => {
-    loadGuests()
-  }, [])
-
-  const loadGuests = async () => {
+  const loadGuests = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
-      const response = await api.getGuests()
+      
+      const params = {
+        page: currentPage,
+        per_page: 9,
+        search: debouncedSearchQuery,
+        property_id: selectedProperty,
+      }
+
+      const response = await api.getGuests(params)
       if (response.success) {
         setGuests(response.guests || [])
+        setTotalPages(response.pages || 1)
       } else {
         setError(response.error || 'Failed to load guests')
-        toast.error(response.error || 'Failed to load guests')
       }
     } catch (err) {
-      console.error('Error loading guests:', err)
-      setError('Failed to load guests')
-      toast.error('Failed to load guests')
+      setError('An unexpected error occurred.')
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentPage, debouncedSearchQuery, selectedProperty])
 
-  const handleSendVerificationLink = async (guest) => {
+  useEffect(() => {
+    loadGuests()
+  }, [loadGuests])
+
+  useEffect(() => {
+    const loadProperties = async () => {
+      const result = await api.getProperties()
+      if (result.success) {
+        setProperties(result.properties || [])
+      }
+    }
+    loadProperties()
+  }, [])
+
+  const handleSendVerificationLink = async (guestId) => {
+    setSendingLink(guestId)
     try {
-      setSendingLink(guest.id)
-      const response = await api.sendVerificationLink(guest.id)
-      
+      const response = await api.sendVerificationLink(guestId)
       if (response.success) {
         toast.success('Verification link sent successfully')
-        loadGuests() // Refresh list to update status
+        loadGuests() // Refresh list
       } else {
-        toast.error(response.error || 'Failed to send verification link')
+        toast.error(response.error || 'Failed to send link')
       }
     } catch (err) {
-      console.error('Error sending verification link:', err)
       toast.error('Failed to send verification link')
     } finally {
       setSendingLink(null)
     }
   }
 
-  const handleGenerateContract = async (guest) => {
-    try {
-      setGeneratingContract(guest.id)
-      const response = await api.generateContract(guest.reservation_id, guest.id)
-      if (response.success) {
-        toast.success('Contract generated successfully')
-        loadGuests() // Refresh list to update contract status
-      } else {
-        toast.error(response.error || 'Failed to generate contract')
-      }
-    } catch (err) {
-      console.error('Error generating contract:', err)
-      toast.error('Failed to generate contract')
-    } finally {
-      setGeneratingContract(null)
-    }
-  }
-
-  const handleGuestUpdated = (updatedGuest) => {
-    setGuests(prevGuests => 
-      prevGuests.map(guest => 
-        guest.id === updatedGuest.id ? updatedGuest : guest
-      )
-    )
+  const handleGuestUpdated = () => {
+    loadGuests() // Refresh the entire list to ensure data consistency
     toast.success('Guest information updated successfully')
   }
-
-  const handleSendMessage = async (guest) => {
-    try {
-      const response = await api.getMessageTemplates({ property_id: guest.property?.id })
-      if (!response.success) {
-        toast.error('Failed to load message templates')
-        return
-      }
-
-      const templates = response.templates || []
-      if (templates.length === 0) {
-        toast.error('No message templates found. Please create templates first.')
-        return
-      }
-
-      // Show template selection modal
-      setSelectedGuest(guest)
-      setShowTemplateModal(true)
-      setAvailableTemplates(templates)
-    } catch (error) {
-      console.error('Error loading templates:', error)
-      toast.error('Failed to load message templates')
+  
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage)
     }
   }
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Not available'
-    return new Date(dateString).toLocaleDateString()
-  }
-
-  if (loading) {
-    return (
-      <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-2 text-sm text-gray-500">Loading guests...</p>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="text-center py-12">
-        <div className="bg-red-100 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-          <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <h3 className="text-lg font-medium text-gray-900">Error Loading Guests</h3>
-        <p className="mt-2 text-sm text-gray-500">{error}</p>
-        <button
-          onClick={loadGuests}
-          className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          Try Again
-        </button>
-      </div>
-    )
-  }
-
-  if (guests.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <div className="bg-gray-100 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-        </div>
-        <h3 className="text-lg font-medium text-gray-900">No Guests Found</h3>
-        <p className="mt-2 text-sm text-gray-500">
-          Guests will appear here after they complete the verification process.
-        </p>
-      </div>
-    )
-  }
-
-  const TemplateSelectionModal = () => {
-    if (!showTemplateModal) return null
-
-    const handleTemplateSelect = async (template) => {
-      try {
-        setSendingMessage(true)
-        const response = await api.scheduleMessage({
-          template_id: template.id,
-          guest_id: selectedGuest.id,
-          reservation_id: selectedGuest.reservation_id,
-          send_immediately: true
-        })
-
-        if (response.success) {
-          toast.success('Message sent successfully')
-          setShowTemplateModal(false)
-        } else {
-          toast.error(response.error || 'Failed to send message')
-        }
-      } catch (error) {
-        console.error('Error sending message:', error)
-        toast.error('Failed to send message')
-      } finally {
-        setSendingMessage(false)
-      }
+  const getStatusInfo = (guest) => {
+    switch (guest.verification_status) {
+      case 'verified':
+        return { label: 'Verified', color: 'bg-green-100 text-green-800' }
+      case 'pending':
+        return guest.verification_link_sent
+          ? { label: 'Awaiting Verification', color: 'bg-yellow-100 text-yellow-800' }
+          : { label: 'Ready to Send', color: 'bg-blue-100 text-blue-800' }
+      default:
+        return { label: guest.verification_status, color: 'bg-red-100 text-red-800' }
     }
+  }
 
+  const GuestCard = ({ guest }) => {
+    const status = getStatusInfo(guest)
     return (
-      <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
-        <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium">Select Message Template</h3>
+      <div className="bg-white shadow rounded-lg p-5 flex flex-col justify-between">
+        <div>
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center space-x-3 min-w-0">
+              <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                <UserPlus className="h-5 w-5 text-gray-500" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-md font-semibold text-gray-900 truncate">{guest.full_name || 'Guest'}</h3>
+                <p className="text-xs text-gray-500 truncate">{guest.property?.name || 'Unknown Property'}</p>
+              </div>
+            </div>
+            <span className={`px-2 py-1 text-xs font-medium rounded-full text-center ${status.color}`}>
+              {status.label}
+            </span>
+          </div>
+          <div className="space-y-2 text-sm text-gray-600">
+            <p><strong>Reservation ID:</strong> {guest.reservation?.external_id || 'N/A'}</p>
+            <p><strong>Phone:</strong> {guest.phone || guest.reservation?.phone_partial || 'Pending'}</p>
+            <p><strong>Email:</strong> {guest.email || 'Pending'}</p>
+            <p><strong>Check-in:</strong> {new Date(guest.check_in).toLocaleDateString()}</p>
+          </div>
+        </div>
+        <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
+          <button onClick={() => setEditingGuest(guest)} className="text-sm font-medium text-blue-600 hover:text-blue-800">
+            <Edit2 className="h-4 w-4 inline mr-1" /> Edit
+          </button>
+          {guest.verification_status === 'pending' && (
             <button
-              onClick={() => setShowTemplateModal(false)}
-              className="text-gray-400 hover:text-gray-500"
+              onClick={() => handleSendVerificationLink(guest.id)}
+              disabled={sendingLink === guest.id}
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 disabled:opacity-50"
             >
-              <X className="h-5 w-5" />
+              {sendingLink === guest.id ? 'Sending...' : 'Send Link'}
             </button>
-          </div>
-          
-          <div className="space-y-4">
-            {availableTemplates.map(template => (
-              <button
-                key={template.id}
-                onClick={() => handleTemplateSelect(template)}
-                disabled={sendingMessage}
-                className="w-full text-left px-4 py-3 border rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium">{template.name}</h4>
-                    <p className="text-sm text-gray-500">{template.type}</p>
-                  </div>
-                  <Send className="h-4 w-4 text-gray-400" />
-                </div>
-              </button>
-            ))}
-          </div>
+          )}
         </div>
       </div>
     )
   }
+
+  const PaginationControls = () => (
+    <div className="flex items-center justify-between mt-6">
+      <button
+        onClick={() => handlePageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+      >
+        Previous
+      </button>
+      <span className="text-sm text-gray-700">
+        Page {currentPage} of {totalPages}
+      </span>
+      <button
+        onClick={() => handlePageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+      >
+        Next
+      </button>
+    </div>
+  )
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-medium text-gray-900">Guest Management</h2>
-        <div className="flex items-center space-x-4">
-          <Link
-            to="/contract-templates"
-            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="w-full md:w-1/3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by name, email, phone, or ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal className="h-5 w-5 text-gray-500" />
+          <select
+            value={selectedProperty}
+            onChange={(e) => setSelectedProperty(e.target.value)}
+            className="border border-gray-300 rounded-lg py-2 px-3"
           >
-            <FileText className="-ml-0.5 mr-2 h-4 w-4" /> Manage Templates
-          </Link>
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-            Total: {guests.length}
-          </span>
+            <option value="">All Properties</option>
+            {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {guests.map((guest) => (
-          <div key={guest.id} className="bg-white shadow rounded-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0">
-                  <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                    <svg className="h-6 w-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 truncate max-w-[150px]">
-                    {guest.full_name || 'Guest'}
-                  </h3>
-                  <p className="text-sm text-gray-500 truncate max-w-[150px]">
-                    {guest.nationality || 'Nationality pending'}
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col items-end space-y-2">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  guest.verification_status === 'verified'
-                    ? 'bg-green-100 text-green-800'
-                    : guest.verification_status === 'pending'
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-red-100 text-red-800'
-                }`}>
-                  {guest.verification_status}
-                </span>
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => setEditingGuest(guest)}
-                    className="inline-flex items-center p-1 border border-transparent text-gray-600 hover:text-blue-600 focus:outline-none"
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </button>
-                  
-                  <button
-                    onClick={() => handleSendMessage(guest)}
-                    className="inline-flex items-center p-1 border border-transparent text-gray-600 hover:text-blue-600 focus:outline-none"
-                  >
-                    <MessageSquare className="h-4 w-4" />
-                  </button>
-                  
-                  {guest.verification_status !== 'verified' && (
-                    <button
-                      onClick={() => handleSendVerificationLink(guest)}
-                      disabled={sendingLink === guest.id}
-                      className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                    >
-                      {sendingLink === guest.id ? (
-                        <>
-                          <RefreshCw className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-700" />
-                          Sending...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="-ml-1 mr-2 h-4 w-4" />
-                          Send Verification
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Property Information */}
-            {guest.property && (
-              <div className="mt-4 border-t pt-4">
-                <div className="flex items-start space-x-2">
-                  <svg className="h-5 w-5 text-gray-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                  </svg>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-900">{guest.property.name}</h4>
-                    <p className="text-sm text-gray-500">
-                      {guest.property.address}
-                      {guest.reservation?.external_id && ` • ${guest.reservation.external_id}`}
-                    </p>
-                    <div className="mt-1 flex items-center text-sm text-gray-500">
-                      <svg className="h-4 w-4 text-gray-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      {guest.check_in && guest.check_out && (
-                        <span>
-                          {new Date(guest.check_in).toLocaleDateString()} - {new Date(guest.check_out).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div className="border-t border-gray-200 pt-4">
-              <dl className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">ID/Passport</dt>
-                  <dd className="mt-1 text-sm text-gray-900 truncate">{guest.cin_or_passport || 'Pending'}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Birthdate</dt>
-                  <dd className="mt-1 text-sm text-gray-900">{formatDate(guest.birthdate)}</dd>
-                </div>
-                <div>
-                  <dt className="text-sm font-medium text-gray-500">Phone</dt>
-                  <dd className="mt-1 text-sm text-gray-900 truncate">{guest.phone || guest.reservation?.phone_partial || 'Pending'}</dd>
-                </div>
-                {guest.email && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Email</dt>
-                    <dd className="mt-1 text-sm text-gray-900 truncate">{guest.email}</dd>
-                  </div>
-                )}
-                {guest.verified_at && (
-                  <div className="col-span-2">
-                    <dt className="text-sm font-medium text-gray-500">Verified At</dt>
-                    <dd className="mt-1 text-sm text-gray-900">{formatDate(guest.verified_at)}</dd>
-                  </div>
-                )}
-              </dl>
-            </div>
-
-            {/* Contract Section */}
-            <div className="border-t border-gray-200 mt-4 pt-4">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-medium text-gray-700">Contract Status</h4>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  guest.contract_status === 'signed'
-                    ? 'bg-green-100 text-green-800'
-                    : guest.contract_status === 'pending'
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : guest.contract_status === 'generated'
-                    ? 'bg-blue-100 text-blue-800'
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {guest.contract_status || 'Not Generated'}
-                </span>
-              </div>
-
-              {guest.verification_status === 'verified' && !guest.contract_status && (
-                <button
-                  onClick={() => handleGenerateContract(guest)}
-                  disabled={generatingContract === guest.id}
-                  className="w-full mt-2 inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  {generatingContract === guest.id ? (
-                    <>
-                      <RefreshCw className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <FileText className="-ml-1 mr-2 h-4 w-4" />
-                      Generate Contract
-                    </>
-                  )}
-                </button>
-              )}
-
-              {guest.contract_status === 'generated' && (
-                <Link
-                  to={`/contracts/${guest.contract_id}/sign`}
-                  className="w-full mt-2 inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                >
-                  <FileText className="-ml-1 mr-2 h-4 w-4" />
-                  Sign Contract
-                </Link>
-              )}
-
-              {guest.contract_status === 'signed' && (
-                <Link
-                  to={`/contracts/${guest.contract_id}`}
-                  className="w-full mt-2 inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <FileText className="-ml-1 mr-2 h-4 w-4" />
-                  View Contract
-                </Link>
-              )}
-            </div>
+      {loading ? (
+        <div className="text-center py-12">Loading guests...</div>
+      ) : error ? (
+        <div className="text-center py-12 text-red-500">{error}</div>
+      ) : guests.length === 0 ? (
+        <div className="text-center py-12">No guests found.</div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {guests.map((guest) => <GuestCard key={guest.id} guest={guest} />)}
           </div>
-        ))}
-      </div>
+          <PaginationControls />
+        </>
+      )}
 
-      {/* Edit Guest Modal */}
       {editingGuest && (
         <GuestEditForm
           guest={editingGuest}
@@ -437,7 +220,6 @@ export default function GuestList() {
           onGuestUpdated={handleGuestUpdated}
         />
       )}
-      {showTemplateModal && <TemplateSelectionModal />}
     </div>
   )
-} 
+}

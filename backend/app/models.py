@@ -170,7 +170,8 @@ class Guest(db.Model):
             'id_document_path': self.id_document_path,
             'verification_status': self.verification_status,
             'verified_at': self.verified_at.isoformat() if self.verified_at else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'verification_link_sent': len(self.verification_links) > 0
         }
         
         # Add reservation and property information if reservation exists
