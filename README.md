@@ -1,168 +1,130 @@
-# 🏠 Hostify - Complete Property Management Platform
+# 🏠 Hostify - Automated Property Management Platform
 
-A comprehensive property management system for Moroccan rental hosts that handles guest verification, contract generation, digital signatures, automated messaging, and legal compliance.
+Hostify is a comprehensive property management system designed to automate the most time-consuming tasks for rental hosts. It handles iCal sync, guest verification, and automated, event-driven communication, allowing you to focus on providing a great guest experience.
 
-## 🌟 **Key Features**
+## 🌟 Core Features
 
-### **🏢 Property Management**
-- **Multi-property Support** - Manage unlimited properties
-- **Property Details** - Track addresses, amenities, and settings
-- **Calendar Sync** - Automatic iCal synchronization with booking platforms
-- **Occupancy Overview** - Visual calendar of all reservations
+### 🏢 Property & Reservation Management
+- **Multi-Property Support:** Manage all your properties from a single dashboard.
+- **iCal Sync:** Automatically syncs reservations from platforms like Airbnb, Booking.com, and Vrbo.
+- **Smart Parsing:** Intelligently parses iCal data to identify and ignore blocked periods, extracting guest confirmation codes and partial phone numbers.
+- **Search & Pagination:** Easily search and navigate through all your reservations and guests.
 
-### **📋 Reservation Management**
-- **Auto-Sync** - Import bookings from Airbnb, Booking.com, etc.
-- **Guest Assignment** - Link guests to reservations
-- **Status Tracking** - Monitor confirmed, pending, and completed stays
-- **Calendar View** - Visual timeline of all bookings
+### 🔐 Guest Verification
+- **Automated Link Sending:** Manually trigger the verification process, which then kicks off all other automations.
+- **Document Upload & OCR:** Guests upload their ID documents, and the system uses OCR to automatically extract their information.
+- **Generic Document Support:** The OCR is designed to work with a wide variety of international ID cards and passports.
+- **Host Review:** Securely view uploaded documents to manually verify guest information.
 
-### **🔐 Guest Verification**
-- **Automated Process** - Send verification links to guests
-- **Document Upload** - OCR processing of ID documents
-- **Data Validation** - Verify guest information
-- **Status Tracking** - Monitor verification progress
-
-### **📄 Contract Management**
-- **Template System** - Customize contract templates
-- **Auto-Generation** - Create contracts from verified guest data
-- **Digital Signatures** - Secure online contract signing
-- **PDF Generation** - Professional contract documents
-- **Legal Compliance** - Meet Moroccan rental regulations
-
-### **💬 Communication Center**
-- **Message Templates** - Pre-built templates for common scenarios
-- **Automated Messaging** - Schedule messages based on booking events
-- **Multi-Channel** - Email and SMS support
-- **Guest Timeline** - Track all communications
-- **Language Support** - Templates in Arabic, French, and English
-
-### **📱 Host Dashboard**
-- **Overview** - Quick stats and recent activity
-- **Property Cards** - Status of each property
-- **Task Management** - Track pending verifications and contracts
-- **Communication Log** - Recent messages and notifications
+### 💬 Automated Communication Engine
+- **Customizable Message Templates:** Create and manage a full suite of SMS templates for every stage of the guest journey.
+- **Powerful Automation Rules:** Build rules to schedule messages based on triggers like "2 days before check-in" or "4 hours after check-out."
+- **Centralized Control:** The automation sequence for a guest is triggered only when you manually send the verification link, giving you full control.
+- **Background Worker:** A reliable background process runs continuously to send scheduled messages at the correct time.
 
 ---
 
-## 🏗️ **Architecture**
-
-### **Frontend (React + Vite)**
-- **Framework**: React 18 with Vite
-- **Styling**: TailwindCSS for modern UI
-- **State Management**: React Context + Hooks
-- **Routing**: React Router with protected routes
-- **Components**: Reusable UI library
-
-### **Backend (Flask + Python)**
-- **Framework**: Flask with Blueprint architecture
-- **Database**: PostgreSQL with SQLAlchemy ORM
-- **Authentication**: Firebase Admin SDK
-- **Background Tasks**: Redis + Celery for scheduling
-- **File Processing**: 
-  - Tesseract for OCR
-  - ReportLab for PDF generation
-  - Cloud storage for documents
-
-### **Integrations**
-- **Authentication**: Firebase (Google, Apple, Microsoft)
-- **Database**: Supabase PostgreSQL
-- **Storage**: Firebase Storage
-- **Messaging**: Twilio (SMS) + SendGrid (Email)
-- **Calendar**: iCal synchronization
-- **Signatures**: Digital signature processing
-
----
-
-## 🔄 **Core Workflows**
-
-### **1. Property Setup**
-```
-Add Property → Configure Settings → Set Contract Templates → Enable Auto-sync
-```
-
-### **2. Reservation Management**
-```
-Auto-sync Bookings → Assign Guests → Schedule Messages → Track Status
-```
-
-### **3. Guest Verification**
-```
-Send Link → Guest Uploads ID → OCR Processing → Data Verification
-```
-
-### **4. Contract Process**
-```
-Generate Contract → Guest Reviews → Digital Signature → Store Document
-```
-
-### **5. Communication Flow**
-```
-Create Templates → Set Triggers → Automated Sending → Track Responses
-```
-
----
-
-## 🛠️ **Technology Stack**
+## 🛠️ Technology Stack
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
 | **Frontend** | React + Vite + TailwindCSS | Modern, responsive UI |
 | **Backend** | Flask + SQLAlchemy | API and business logic |
-| **Database** | Supabase PostgreSQL | Data storage with RLS |
+| **Database** | PostgreSQL | Data storage |
 | **Auth** | Firebase Auth | User authentication |
-| **Tasks** | Redis + Celery | Background processing |
 | **OCR** | Tesseract | Document processing |
-| **PDF** | ReportLab | Contract generation |
-| **Storage** | Firebase Storage | Document storage |
-| **Email** | SendGrid | Email communications |
 | **SMS** | Twilio | SMS notifications |
 
 ---
 
-## 📊 **Project Structure**
+## 🚀 Getting Started
 
+### Prerequisites
+- Python 3.10+ and Node.js 18+
+- A PostgreSQL database
+- A Firebase project for authentication
+- A Twilio account for sending SMS
+
+### 1. Backend Setup
+```bash
+# Navigate to the backend directory
+cd backend
+
+# Create and activate a virtual environment
+python -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Create a .env file and configure your environment variables
+# (See .env.example for a template)
+cp .env.example .env
+
+# Run the database migrations
+flask db upgrade
+
+# Run the backfill scripts to create default templates for existing users
+python scripts/backfill_default_templates.py
+python scripts/backfill_contract_templates.py
+```
+
+### 2. Frontend Setup
+```bash
+# Navigate to the frontend directory
+cd frontend
+
+# Install dependencies
+npm install
+
+# Create a .env file and add your Firebase configuration
+# (See .env.example for a template)
+cp .env.example .env
+```
+
+### 3. Running the Application
+You will need to run three processes in separate terminals:
+
+**Terminal 1: Run the Backend API**
+```bash
+cd backend
+source venv/bin/activate
+flask run
+```
+
+**Terminal 2: Run the Frontend Dev Server**
+```bash
+cd frontend
+npm run dev
+```
+
+**Terminal 3: Run the Automation Engine**
+```bash
+cd backend
+source venv/bin/activate
+python scripts/send_scheduled_messages.py
+```
+
+The application will now be available at `http://localhost:3000`.
+
+---
+
+## 📊 Project Structure
 ```
 hostify/
-├── frontend/                 # React application
+├── frontend/
 │   ├── src/
-│   │   ├── components/      # UI components
-│   │   ├── pages/          # Route components
-│   │   ├── services/       # API and auth services
-│   │   └── App.jsx         # Main application
-│   └── package.json
-├── backend/                 # Flask API
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   └── App.jsx
+├── backend/
 │   ├── app/
-│   │   ├── routes/         # API endpoints
-│   │   │   ├── properties.py   # Property management
-│   │   │   ├── reservations.py # Reservation handling
-│   │   │   ├── guests.py       # Guest management
-│   │   │   ├── contracts.py    # Contract operations
-│   │   │   ├── messages.py     # Communication system
-│   │   │   └── verification.py # ID verification
-│   │   ├── utils/          # Helper functions
-│   │   │   ├── auth.py        # Authentication
-│   │   │   ├── pdf.py         # PDF generation
-│   │   │   ├── ocr.py         # Document processing
-│   │   │   ├── messaging.py   # Communication
-│   │   │   └── calendar_sync.py # iCal sync
-│   │   └── models.py       # Database models
-│   ├── migrations/         # Database migrations
-│   ├── requirements.txt
+│   │   ├── routes/
+│   │   ├── utils/
+│   │   └── models.py
+│   ├── migrations/
+│   ├── scripts/  # Standalone scripts (e.g., background worker)
 │   └── run.py
-└── docs/                   # Documentation
+└── README.md
 ```
-
----
-
-## 🎯 **Roadmap**
-
-- [ ] **Booking Management** - Direct booking system
-- [ ] **Financial Module** - Payment processing and reporting
-- [ ] **Maintenance Module** - Track property maintenance
-- [ ] **Owner Portal** - For property owners
-- [ ] **Mobile Apps** - Native iOS and Android
-- [ ] **API Integration** - Public API for third-party integration
-
----
-
-**Built for Professional Rental Property Management** 🏢 
