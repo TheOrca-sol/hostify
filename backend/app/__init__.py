@@ -49,7 +49,7 @@ def create_app():
     app.register_blueprint(verification_bp, url_prefix='/api')
     app.register_blueprint(calendar_bp, url_prefix='/api')
     app.register_blueprint(reservations_bp, url_prefix='/api')
-    app.register_blueprint(messages_bp, url_prefix='/api')
+    app.register_blueprint(messages_bp, url_prefix='/api/messages')
     app.register_blueprint(user_bp, url_prefix='/api')
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
