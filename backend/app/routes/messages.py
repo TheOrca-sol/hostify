@@ -22,6 +22,7 @@ def after_request(response):
     return response
 
 # Handle OPTIONS requests for CORS
+@messages_bp.route('/templates', methods=['OPTIONS'])
 @messages_bp.route('/scheduled', methods=['OPTIONS'])
 @messages_bp.route('/scheduled/<message_id>/send', methods=['OPTIONS'])
 @messages_bp.route('/scheduled/<message_id>/cancel', methods=['OPTIONS'])

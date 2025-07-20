@@ -26,6 +26,13 @@ export default function GuestEditForm({ guest, onClose, onGuestUpdated }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // Frontend validation for phone number
+    if (formData.phone && !formData.phone.startsWith('+')) {
+      setError('Phone number must be in international format (e.g., +33612345678).');
+      return;
+    }
+
     try {
       setLoading(true)
       setError('')
@@ -110,8 +117,12 @@ export default function GuestEditForm({ guest, onClose, onGuestUpdated }) {
               name="phone"
               value={formData.phone}
               onChange={handleChange}
+              placeholder="+14155552671"
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500"
             />
+            <p className="mt-1 text-xs text-gray-500">
+              Must be in international format (e.g., +33612345678).
+            </p>
           </div>
 
           <div>

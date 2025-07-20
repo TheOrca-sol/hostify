@@ -3,14 +3,12 @@ Guest verification routes for Hostify Property Management Platform
 """
 
 from flask import Blueprint, request, jsonify, g
-from ..utils.database import (
-    db, User, Guest, Property, Reservation,
-    get_user_by_firebase_uid
-)
+from ..models import db, User, Guest, Property, Reservation, VerificationLink, MessageTemplate
+from ..utils.database import get_user_by_firebase_uid
 from ..utils.auth import require_auth
 from ..utils.ocr import process_id_document
 from ..utils.sms import send_sms
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import uuid
 import os
 from werkzeug.utils import secure_filename
@@ -20,46 +18,58 @@ verification_bp = Blueprint('verification', __name__)
 @verification_bp.route('/verify/<guest_id>/send-link', methods=['POST'])
 @require_auth
 def send_verification_link(guest_id):
-    """Send a verification link to a guest via SMS"""
+    """Generate and send a verification link via SMS."""
     try:
-        # Get user record
         user = get_user_by_firebase_uid(g.user_id)
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
-        
-        # Get guest and verify ownership
-        guest = Guest.query.filter_by(id=uuid.UUID(guest_id)).first()
-        if not guest:
-            return jsonify({'success': False, 'error': 'Guest not found'}), 404
-        
-        # Get reservation and property to verify ownership
-        if not guest.reservation or not guest.reservation.property:
-            return jsonify({'success': False, 'error': 'Invalid guest data'}), 400
-        
-        if str(guest.reservation.property.user_id) != user['id']:
-            return jsonify({'success': False, 'error': 'Access denied'}), 403
-        
-        # Generate verification token
+
+        guest = Guest.query.get(guest_id)
+        if not guest or str(guest.reservation.property.user_id) != user['id']:
+            return jsonify({'success': False, 'error': 'Guest not found or access denied'}), 404
+
+        if not guest.phone:
+            return jsonify({'success': False, 'error': 'Guest has no phone number on file.'}), 400
+
+        # Create a new verification link
         token = str(uuid.uuid4())
+        expires_at = datetime.utcnow() + timedelta(days=7)
+        
+        new_link = VerificationLink(
+            guest_id=guest.id,
+            token=token,
+            expires_at=expires_at,
+            status='sent'
+        )
+        db.session.add(new_link)
+        
+        # Also update the token on the guest for public-facing routes
         guest.verification_token = token
         db.session.commit()
+
+        verification_url = f"http://localhost:3000/verify/{token}"
         
-        # Send verification link via SMS
-        verification_link = f"http://localhost:3000/verify/{token}"
-        message_body = f"Please verify your identity for your upcoming stay: {verification_link}"
-        sms_sent = send_sms(guest.phone, message_body)
+        # Fetch the verification template from the database
+        template = MessageTemplate.query.filter_by(user_id=user['id'], type='verification').first()
         
-        if sms_sent:
-            return jsonify({'success': True, 'message': 'Verification link sent successfully'})
+        if template:
+            message_body = template.content.replace('{{guest_name}}', guest.full_name or 'Guest')
+            message_body = message_body.replace('{{verification_link}}', verification_url)
         else:
-            return jsonify({'success': False, 'error': 'Failed to send verification link'}), 500
-    
+            # Fallback to a hardcoded message if no template is found
+            message_body = f"Hello {guest.full_name or 'Guest'}, please verify your identity for your upcoming stay: {verification_url}"
+
+        # Send the SMS
+        sms_result = send_sms(guest.phone, message_body)
+
+        if sms_result['success']:
+            return jsonify({'success': True, 'message': 'Verification link sent successfully.'})
+        else:
+            return jsonify({'success': False, 'error': sms_result.get('error', 'Failed to send SMS.')}), 500
+
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            'success': False,
-            'error': f'Failed to send verification link: {str(e)}'
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @verification_bp.route('/verify/guest/<guest_id>', methods=['POST'])
 @require_auth
@@ -175,7 +185,7 @@ def upload_document(token):
             'error': f'Failed to process ID document: {str(e)}'
         }), 500
 
-@verification_bp.route('/verify/get-verification-info/<token>', methods=['GET'])
+@verification_bp.route('/get-verification-info/<token>', methods=['GET'])
 def get_verification_info(token):
     """Get verification information for a given token"""
     try:

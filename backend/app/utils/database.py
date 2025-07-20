@@ -4,13 +4,13 @@ Updated to support property-centric architecture with reservations and contracts
 """
 
 from datetime import datetime, timezone
-from ..models import db, User, Property, Reservation, Guest, VerificationLink, Contract, ContractTemplate, SyncLog
+from ..models import db, User, Property, Reservation, Guest, VerificationLink, Contract, ContractTemplate, SyncLog, MessageTemplate
 import uuid
 
 # User Management
 def create_user(firebase_uid, email, name, **kwargs):
     """
-    Create a new user from Firebase authentication
+    Create a new user and a default verification message template.
     """
     try:
         user = User(
@@ -21,14 +21,28 @@ def create_user(firebase_uid, email, name, **kwargs):
             company_name=kwargs.get('company_name'),
             settings=kwargs.get('settings', {})
         )
-        
         db.session.add(user)
+        db.session.flush() # Flush to get the user ID before creating the template
+
+        # Create a default verification message template for the new user
+        verification_template = MessageTemplate(
+            user_id=user.id,
+            name="Default Guest Verification",
+            type="verification",
+            subject="Verify Your Identity for Your Stay",
+            content="Hello {{guest_name}}, please verify your identity for your upcoming stay: {{verification_link}}",
+            language="en",
+            channels=["sms"],
+            variables=["guest_name", "verification_link"]
+        )
+        db.session.add(verification_template)
         db.session.commit()
+        
         return str(user.id)
     
     except Exception as e:
         db.session.rollback()
-        print(f"Database error: {str(e)}")
+        print(f"Database error in create_user: {str(e)}")
         return None
 
 def get_user_by_firebase_uid(firebase_uid):
