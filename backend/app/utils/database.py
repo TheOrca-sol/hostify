@@ -5,12 +5,13 @@ Updated to support property-centric architecture with reservations and contracts
 
 from datetime import datetime, timezone
 from ..models import db, User, Property, Reservation, Guest, VerificationLink, Contract, ContractTemplate, SyncLog, MessageTemplate
+from ..constants import TEMPLATE_TYPES # Import from the new central location
 import uuid
 
 # User Management
 def create_user(firebase_uid, email, name, **kwargs):
     """
-    Create a new user and a default verification message template.
+    Create a new user and a full set of default message templates.
     """
     try:
         user = User(
@@ -22,20 +23,36 @@ def create_user(firebase_uid, email, name, **kwargs):
             settings=kwargs.get('settings', {})
         )
         db.session.add(user)
-        db.session.flush() # Flush to get the user ID before creating the template
+        db.session.flush() # Flush to get the user ID
 
-        # Create a default verification message template for the new user
-        verification_template = MessageTemplate(
-            user_id=user.id,
-            name="Default Guest Verification",
-            template_type="verification_request",
-            subject="Verify Your Identity for Your Stay",
-            content="Hello {{guest_name}}, please verify your identity for your upcoming stay: {{verification_link}}",
-            language="en",
-            channels=["sms"],
-            variables=["guest_name", "verification_link"]
-        )
-        db.session.add(verification_template)
+        # --- Create a default template for each type ---
+        for t_type in TEMPLATE_TYPES:
+            # Create a generic content for any type not explicitly defined
+            default_content = f"This is the default template for {t_type['label']}. Please edit this content. Regards, {{host_name}}."
+            
+            # Use specific content for the most important templates
+            specific_content = {
+                "verification_request": "Hello {{guest_name}}, please verify your identity for your upcoming stay: {{verification_link}}",
+                "welcome": "Welcome, {{guest_name}}! We're excited to host you at {{property_name}} from {{check_in_date}}.",
+                "checkin": "Hi {{guest_name}}, just a reminder that check-in for your stay at {{property_name}} is tomorrow. Here are the details: [ADD CHECK-IN DETAILS HERE]",
+                "checkout": "Hi {{guest_name}}, this is a reminder that your check-out is tomorrow at {{check_out_time}}. We hope you enjoyed your stay!",
+                "review_request": "Thank you for staying with us, {{guest_name}}! We'd appreciate it if you could leave a review about your experience at {{property_name}}."
+            }
+
+            content = specific_content.get(t_type['value'], default_content)
+
+            new_template = MessageTemplate(
+                user_id=user.id,
+                name=f"Default {t_type['label']}",
+                template_type=t_type['value'],
+                subject=f"Regarding your stay at {{property_name}}",
+                content=content,
+                language="en",
+                channels=["sms"],
+                variables=["guest_name", "property_name", "check_in_date", "check_out_time", "verification_link", "host_name"]
+            )
+            db.session.add(new_template)
+        
         db.session.commit()
         
         return str(user.id)
