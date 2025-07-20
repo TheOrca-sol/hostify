@@ -99,7 +99,7 @@ class Reservation(db.Model):
     # Relationships
     guests = db.relationship('Guest', backref='reservation', lazy=True, cascade='all, delete-orphan')
     contracts = db.relationship('Contract', backref='reservation', lazy=True)
-    messages = db.relationship('Message', backref='reservation', lazy=True)
+    messages = db.relationship('Message', backref='reservation', lazy=True, cascade='all, delete-orphan')
     
     def to_dict(self):
         data = {
@@ -150,7 +150,7 @@ class Guest(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
     
     # Relationships
-    verification_links = db.relationship('VerificationLink', backref='guest', lazy=True)
+    verification_links = db.relationship('VerificationLink', backref='guest', lazy=True, cascade='all, delete-orphan')
     contracts = db.relationship('Contract', backref='guest', lazy=True)
     messages = db.relationship('Message', backref='guest', lazy=True)
     
@@ -388,7 +388,7 @@ class ScheduledMessage(db.Model):
     
     # Relationships
     reservation = db.relationship('Reservation', backref='scheduled_messages', lazy=True)
-    guest = db.relationship('Guest', backref='scheduled_messages', lazy=True)
+    guest = db.relationship('Guest', backref=db.backref('scheduled_messages', cascade='all, delete-orphan'), lazy=True)
     logs = db.relationship('MessageLog', backref='scheduled_message', lazy=True)
     
     def to_dict(self):

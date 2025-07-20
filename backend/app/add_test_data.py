@@ -26,8 +26,8 @@ with app.app_context():
         user = User(
             firebase_uid=firebase_uid,
             email='testuser@example.com',
-            name='Test User',
-            phone='0612345678',
+            name='hamza User',
+            phone='+212663250280',
             company_name='Test Company',
             settings={}
         )
