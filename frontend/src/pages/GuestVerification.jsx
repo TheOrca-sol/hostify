@@ -60,14 +60,6 @@ const GuestVerification = () => {
       }
     });
 
-    // Validate CIN format (if Moroccan ID)
-    if (formData.document_type === 'CIN' && formData.cin_or_passport) {
-      const cinRegex = /^[A-Z]{1,2}[0-9]{5,6}$/;
-      if (!cinRegex.test(formData.cin_or_passport)) {
-        newErrors.cin_or_passport = 'Invalid CIN format';
-      }
-    }
-
     // Validate birthdate (must be in the past)
     if (formData.birthdate) {
       const birthDate = new Date(formData.birthdate);
@@ -257,7 +249,7 @@ const GuestVerification = () => {
                 <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
-                Moroccan CIN or Passport accepted
+                ID Card or Passport accepted
               </div>
               <div className="flex items-center text-sm text-gray-600">
                 <svg className="w-4 h-4 text-green-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -386,7 +378,7 @@ const GuestVerification = () => {
                   required
                 >
                   <option value="">Select document type</option>
-                  <option value="CIN">Moroccan CIN</option>
+                  <option value="ID Card">ID Card</option>
                   <option value="Passport">Passport</option>
                 </select>
                 {errors.document_type && (
@@ -396,7 +388,7 @@ const GuestVerification = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  CIN or Passport Number *
+                  ID Number *
                 </label>
                 <input
                   type="text"

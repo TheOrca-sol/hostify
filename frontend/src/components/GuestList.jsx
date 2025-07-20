@@ -131,9 +131,21 @@ export default function GuestList() {
           </div>
         </div>
         <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
-          <button onClick={() => setEditingGuest(guest)} className="text-sm font-medium text-blue-600 hover:text-blue-800">
-            <Edit2 className="h-4 w-4 inline mr-1" /> Edit
-          </button>
+          <div className="flex items-center space-x-4">
+            <button onClick={() => setEditingGuest(guest)} className="text-sm font-medium text-blue-600 hover:text-blue-800">
+              <Edit2 className="h-4 w-4 inline mr-1" /> Edit
+            </button>
+            {guest.id_document_path && (
+              <a
+                href={`${api.API_BASE_URL}/uploads/${guest.id_document_path.split('/').slice(-1)[0]}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-medium text-gray-600 hover:text-gray-800"
+              >
+                View Document
+              </a>
+            )}
+          </div>
           {guest.verification_status === 'pending' && (
             <button
               onClick={() => handleSendVerificationLink(guest.id)}
