@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, Send } from 'lucide-react'
 import { api } from '../services/api'
 import MessageTemplateForm from '../components/MessageTemplateForm'
+import { toast } from '../components/Toaster'
 
 export default function MessageTemplates() {
   const [templates, setTemplates] = useState([])
