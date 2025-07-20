@@ -166,6 +166,7 @@ const GuestVerification = () => {
       if (response.success) {
         setStep('success');
         toast.success('Verification completed successfully!');
+        await api.generateContractAndScheduleSms(linkInfo.guest_id);
       } else {
         toast.error(response.error || 'Failed to submit verification');
       }

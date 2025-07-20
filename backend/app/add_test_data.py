@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 
 sys.path.append(os.path.dirname(__file__))
-from models import db, User, Property, Reservation, Guest, Message
+from models import db, User, Property, Reservation, Guest, Message, ScheduledMessage, MessageTemplate
 from flask import Flask
 from sqlalchemy.exc import IntegrityError
 
@@ -82,22 +82,22 @@ with app.app_context():
         print(f"Reservation already exists: {reservation.id}")
 
     # 4. Create or get test guest
-    guest = Guest.query.filter_by(reservation_id=reservation.id, full_name='Ahmed Khalil').first()
+    guest = Guest.query.filter_by(reservation_id=reservation.id, full_name='ayman nciri').first()
     if not guest:
         guest = Guest(
             reservation_id=reservation.id,
             verification_token=str(uuid4()),
-            full_name='Ahmed Khalil',
+            full_name='ayman nciri',
             cin_or_passport='AB123456',
             birthdate=datetime(1990, 5, 20),
             nationality='Moroccan',
             address='456 Guest Ave, Rabat',
-            phone='0612345678',
-            email='ahmed.khalil@example.com',
+            phone='+212694461807',
+            email='ayman.nciri@example.com',
             document_type='passport',
-            id_document_path='/uploads/ids/ahmed_khalil_passport.pdf',
-            verification_status='verified',
-            verified_at=datetime.now(),
+            id_document_path='/uploads/ids/ayman_nciri_passport.pdf',
+            verification_status='pending',
+            verified_at=None,
         )
         db.session.add(guest)
         db.session.commit()
@@ -105,22 +105,38 @@ with app.app_context():
     else:
         print(f"Guest already exists: {guest.id}")
 
-    # 5. Create or get test message
-    message = Message.query.filter_by(reservation_id=reservation.id, guest_id=guest.id).first()
+    # 5. Create or get test message template
+    template = MessageTemplate.query.filter_by(user_id=user.id, name='Test Template').first()
+    if not template:
+        template = MessageTemplate(
+            user_id=user.id,
+            name='Test Template',
+            type='checkin',
+            subject='Your upcoming stay at {{property.name}}',
+            content='Hello {{guest.full_name}},\n\nThis is a reminder about your check-in on {{reservation.check_in}}.\n\nThanks,\n{{user.name}}',
+            channels=['email', 'sms']
+        )
+        db.session.add(template)
+        db.session.commit()
+        print(f"Created Message Template: {template.id}")
+    else:
+        print(f"Message Template already exists: {template.id}")
+
+    # 6. Create or get test scheduled message
+    message = ScheduledMessage.query.filter_by(reservation_id=reservation.id, guest_id=guest.id).first()
     if not message:
-        message = Message(
+        message = ScheduledMessage(
+            template_id=template.id,
             reservation_id=reservation.id,
             guest_id=guest.id,
-            message_type='welcome',
-            template_id=None,
-            content='Welcome to our property, Ahmed! Your check-in is tomorrow.',
-            channel='email',
-            delivery_status='sent'
+            status='scheduled',
+            scheduled_for=datetime.now() + timedelta(hours=1),
+            channels=['email']
         )
         db.session.add(message)
         db.session.commit()
-        print(f"Created Message: {message.id}")
+        print(f"Created Scheduled Message: {message.id}")
     else:
-        print(f"Message already exists: {message.id}")
+        print(f"Scheduled Message already exists: {message.id}")
 
     print("Test data setup complete.") 
