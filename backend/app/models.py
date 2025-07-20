@@ -340,7 +340,7 @@ class MessageTemplate(db.Model):
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
     property_id = db.Column(UUID(as_uuid=True), db.ForeignKey('properties.id'), nullable=True)
     name = db.Column(db.Text, nullable=False)
-    type = db.Column(db.Text, nullable=False)  # checkin, checkout, welcome, review_request, cleaner
+    template_type = db.Column(db.Text, nullable=False)  # 'verification', 'checkin', 'checkout', etc.
     subject = db.Column(db.Text, nullable=True)
     content = db.Column(db.Text, nullable=False)
     language = db.Column(db.Text, nullable=False, server_default='en')
@@ -360,7 +360,7 @@ class MessageTemplate(db.Model):
             'user_id': str(self.user_id),
             'property_id': str(self.property_id) if self.property_id else None,
             'name': self.name,
-            'type': self.type,
+            'template_type': self.template_type,
             'subject': self.subject,
             'content': self.content,
             'language': self.language,

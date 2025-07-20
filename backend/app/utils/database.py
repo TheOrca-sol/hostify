@@ -28,7 +28,7 @@ def create_user(firebase_uid, email, name, **kwargs):
         verification_template = MessageTemplate(
             user_id=user.id,
             name="Default Guest Verification",
-            type="verification",
+            template_type="verification_request",
             subject="Verify Your Identity for Your Stay",
             content="Hello {{guest_name}}, please verify your identity for your upcoming stay: {{verification_link}}",
             language="en",

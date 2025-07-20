@@ -38,14 +38,14 @@ const VARIABLES = [
   { key: 'host_phone', description: 'Host contact number' }
 ]
 
-export default function MessageTemplateForm({ template, properties, onSubmit, onCancel }) {
+export default function MessageTemplateForm({ template, properties, templateTypes, onSubmit, onCancel }) {
   const [formData, setFormData] = useState({
     name: template?.name || '',
-    type: template?.type || 'welcome',
+    template_type: template?.template_type || 'welcome',
     property_id: template?.property_id || '',
     subject: template?.subject || '',
     content: template?.content || '',
-    channels: template?.channels || ['email'],
+    channels: template?.channels || ['sms'],
     language: template?.language || 'en',
     active: template?.active ?? true
   })
@@ -76,14 +76,14 @@ export default function MessageTemplateForm({ template, properties, onSubmit, on
     const text = textArea.value
     const before = text.substring(0, start)
     const after = text.substring(end)
-    const newContent = `${before}{${variable}}${after}`
+    const newContent = `${before}{{${variable}}}${after}`
     
     setFormData(prev => ({ ...prev, content: newContent }))
     
     // Reset cursor position
     setTimeout(() => {
       textArea.focus()
-      const newCursor = start + variable.length + 2
+      const newCursor = start + variable.length + 4
       textArea.setSelectionRange(newCursor, newCursor)
     }, 0)
   }
@@ -102,10 +102,6 @@ export default function MessageTemplateForm({ template, properties, onSubmit, on
     }
     if (formData.channels.length === 0) {
       setError('At least one channel must be selected')
-      return
-    }
-    if (formData.channels.includes('email') && !formData.subject.trim()) {
-      setError('Subject is required for email templates')
       return
     }
 
@@ -153,12 +149,12 @@ export default function MessageTemplateForm({ template, properties, onSubmit, on
             Message Type
           </label>
           <select
-            name="type"
-            value={formData.type}
+            name="template_type"
+            value={formData.template_type}
             onChange={handleChange}
             className="w-full border rounded-lg px-3 py-2"
           >
-            {MESSAGE_TYPES.map(type => (
+            {templateTypes.map(type => (
               <option key={type.value} value={type.value}>
                 {type.label}
               </option>

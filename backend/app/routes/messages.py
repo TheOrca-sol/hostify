@@ -13,6 +13,22 @@ import uuid
 
 messages_bp = Blueprint('messages', __name__)
 
+# Single source of truth for message template types
+TEMPLATE_TYPES = [
+    {'value': 'verification_request', 'label': 'Verification Request'},
+    {'value': 'welcome', 'label': 'Welcome Message'},
+    {'value': 'verification_reminder', 'label': 'Verification Reminder'},
+    {'value': 'verification_complete', 'label': 'Verification Complete'},
+    {'value': 'contract_ready', 'label': 'Contract Ready for Signing'},
+    {'value': 'contract_reminder', 'label': 'Contract Signing Reminder'},
+    {'value': 'contract_signed', 'label': 'Contract Signed Confirmation'},
+    {'value': 'checkin', 'label': 'Check-in Instructions'},
+    {'value': 'during_stay', 'label': 'During Stay'},
+    {'value': 'checkout', 'label': 'Check-out Reminder'},
+    {'value': 'review_request', 'label': 'Review Request'},
+    {'value': 'cleaner', 'label': 'Cleaner Notification'}
+]
+
 # Add CORS support
 @messages_bp.after_request
 def after_request(response):
@@ -33,16 +49,14 @@ def handle_options():
 @messages_bp.route('/templates', methods=['GET'])
 @require_auth
 def get_templates():
-    """Get all message templates for a user"""
+    """Get all message templates for a user and the available template types."""
     try:
-        # Get user record
         user = get_user_by_firebase_uid(g.user_id)
         if not user:
             return jsonify({'error': 'User not found'}), 404
 
         property_id = request.args.get('property_id')
         
-        # Query templates
         query = MessageTemplate.query.filter_by(user_id=user['id'])
         if property_id:
             query = query.filter(
@@ -51,10 +65,15 @@ def get_templates():
             )
         
         templates = query.order_by(MessageTemplate.created_at.desc()).all()
-        return jsonify([template.to_dict() for template in templates])
+        
+        return jsonify({
+            'success': True,
+            'templates': [template.to_dict() for template in templates],
+            'template_types': TEMPLATE_TYPES
+        })
     except Exception as e:
         print(f"Error in get_templates: {str(e)}")
-        return jsonify({"error": "Failed to fetch templates"}), 500
+        return jsonify({"success": False, "error": "Failed to fetch templates"}), 500
 
 @messages_bp.route('/templates', methods=['POST'])
 @require_auth
@@ -69,7 +88,7 @@ def create_template():
         data = request.get_json()
         
         # Validate required fields
-        required_fields = ['name', 'type', 'content', 'channels']
+        required_fields = ['name', 'template_type', 'content', 'channels']
         if not all(field in data for field in required_fields):
             return jsonify({'error': 'Missing required fields'}), 400
         
@@ -78,7 +97,7 @@ def create_template():
             user_id=user['id'],  # Use the database UUID
             property_id=uuid.UUID(data['property_id']) if data.get('property_id') else None,
             name=data['name'],
-            type=data['type'],
+            template_type=data['template_type'],
             subject=data.get('subject'),
             content=data['content'],
             language=data.get('language', 'en'),
@@ -108,7 +127,7 @@ def update_template(template_id):
     data = request.get_json()
     
     # Update fields
-    for field in ['name', 'type', 'subject', 'content', 'language', 'channels', 'variables', 'active']:
+    for field in ['name', 'template_type', 'subject', 'content', 'language', 'channels', 'variables', 'active']:
         if field in data:
             setattr(template, field, data[field])
     

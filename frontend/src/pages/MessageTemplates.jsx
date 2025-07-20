@@ -5,14 +5,14 @@ import MessageTemplateForm from '../components/MessageTemplateForm'
 
 export default function MessageTemplates() {
   const [templates, setTemplates] = useState([])
-  const [selectedTemplate, setSelectedTemplate] = useState(null)
-  const [isFormOpen, setIsFormOpen] = useState(false)
-  const [selectedProperty, setSelectedProperty] = useState(null)
+  const [templateTypes, setTemplateTypes] = useState([])
   const [properties, setProperties] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState(null)
+  const [selectedProperty, setSelectedProperty] = useState(null)
 
-  // Fetch templates and properties on mount
   useEffect(() => {
     fetchTemplates()
     fetchProperties()
@@ -21,12 +21,16 @@ export default function MessageTemplates() {
   const fetchTemplates = async () => {
     try {
       setLoading(true)
-      const response = await api.getMessageTemplates(selectedProperty?.id)
-      setTemplates(response)
-      setError(null)
+      const response = await api.getMessageTemplates()
+      if (response.success) {
+        setTemplates(response.templates || [])
+        setTemplateTypes(response.template_types || [])
+      } else {
+        throw new Error(response.error || 'Failed to load message templates')
+      }
     } catch (err) {
-      setError('Failed to load message templates')
-      console.error(err)
+      setError(err.message)
+      toast.error(err.message)
     } finally {
       setLoading(false)
     }
@@ -43,13 +47,13 @@ export default function MessageTemplates() {
   }
 
   const handleCreateTemplate = () => {
-    setSelectedTemplate(null)
-    setIsFormOpen(true)
+    setEditingTemplate(null)
+    setIsModalOpen(true)
   }
 
   const handleEditTemplate = (template) => {
-    setSelectedTemplate(template)
-    setIsFormOpen(true)
+    setEditingTemplate(template)
+    setIsModalOpen(true)
   }
 
   const handleDeleteTemplate = async (templateId) => {
@@ -65,17 +69,17 @@ export default function MessageTemplates() {
 
   const handleFormSubmit = async (templateData) => {
     try {
-      if (selectedTemplate) {
+      if (editingTemplate) {
         // Update existing template
-        const updated = await api.updateMessageTemplate(selectedTemplate.id, templateData)
+        const updated = await api.updateMessageTemplate(editingTemplate.id, templateData)
         setTemplates(templates.map(t => t.id === updated.id ? updated : t))
       } else {
         // Create new template
         const created = await api.createMessageTemplate(templateData)
         setTemplates(prevTemplates => [created, ...(prevTemplates || [])])
       }
-      setIsFormOpen(false)
-      setSelectedTemplate(null)
+      setIsModalOpen(false)
+      setEditingTemplate(null)
     } catch (err) {
       console.error('Failed to save template:', err)
       setError('Failed to save template')
@@ -181,16 +185,17 @@ export default function MessageTemplates() {
       )}
 
       {/* Template Form Modal */}
-      {isFormOpen && (
+      {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <MessageTemplateForm
-              template={selectedTemplate}
+              template={editingTemplate}
               properties={properties}
+              templateTypes={templateTypes}
               onSubmit={handleFormSubmit}
               onCancel={() => {
-                setIsFormOpen(false)
-                setSelectedTemplate(null)
+                setIsModalOpen(false)
+                setEditingTemplate(null)
               }}
             />
           </div>

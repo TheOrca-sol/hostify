@@ -50,7 +50,7 @@ def send_verification_link(guest_id):
         verification_url = f"http://localhost:3000/verify/{token}"
         
         # Fetch the verification template from the database
-        template = MessageTemplate.query.filter_by(user_id=user['id'], type='verification').first()
+        template = MessageTemplate.query.filter_by(user_id=user['id'], template_type='verification_request').first()
         
         if template:
             message_body = template.content.replace('{{guest_name}}', guest.full_name or 'Guest')
