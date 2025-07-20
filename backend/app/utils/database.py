@@ -205,7 +205,17 @@ def get_user_reservations(user_id, filter_type=None):
         query = query.order_by(Reservation.check_in.desc())
         
         reservations = query.all()
-        return [reservation.to_dict() for reservation in reservations]
+        
+        # Convert to dict and dynamically set status
+        reservation_list = []
+        for r in reservations:
+            r_dict = r.to_dict()
+            # Dynamically set status for frontend
+            if r.check_in <= now <= r.check_out:
+                r_dict['status'] = 'active'
+            reservation_list.append(r_dict)
+            
+        return reservation_list
     
     except Exception as e:
         print(f"Database error: {str(e)}")
