@@ -123,6 +123,27 @@ def extract_phone_from_description(description: str) -> Optional[str]:
     
     return None
 
+def extract_details_from_description(description: str) -> Dict[str, Optional[str]]:
+    """
+    Extracts confirmation code and partial phone from description text.
+    """
+    details = {
+        'confirmation_code': None,
+        'phone_partial': None
+    }
+
+    # Extract confirmation code from URL
+    code_match = re.search(r'reservations/details/(\w+)', description)
+    if code_match:
+        details['confirmation_code'] = code_match.group(1)
+
+    # Extract partial phone number
+    phone_match = re.search(r'Phone Number \(Last 4 Digits\):\s*(\d{4})', description)
+    if phone_match:
+        details['phone_partial'] = f"****{phone_match.group(1)}"
+
+    return details
+
 def parse_ical_events(ical_data: str) -> List[Dict]:
     """
     Parse iCal data and extract booking events
@@ -169,27 +190,23 @@ def parse_ical_events(ical_data: str) -> List[Dict]:
                     end_dt = datetime.combine(end_dt, datetime.min.time())
                     end_dt = pytz.UTC.localize(end_dt)
                 
-                # Extract guest information from summary and description
+                # Extract guest information from summary
                 guest_info = extract_guest_info_from_summary(summary)
                 
-                # Try to extract phone from description if not found in summary
-                if not guest_info['guest_phone'] and description:
-                    guest_info['guest_phone'] = extract_phone_from_description(description)
+                # Extract confirmation code and phone from description
+                description_details = extract_details_from_description(description)
                 
-                # If no guest name found in summary, try description
-                if not guest_info['guest_name'] and description:
-                    desc_guest_info = extract_guest_info_from_summary(description)
-                    for key, value in desc_guest_info.items():
-                        if value and not guest_info[key]:
-                            guest_info[key] = value
-                
+                # If the summary is 'Reserved' and no specific name was found, use 'Reserved'.
+                if summary.lower() == 'reserved' and not guest_info.get('guest_name'):
+                    guest_info['guest_name'] = 'Reserved'
+
                 # For Airbnb blocked events, set guest name as "Blocked Period"
                 if summary.lower() in ['airbnb (not available)', 'blocked'] and not guest_info['guest_name']:
                     guest_info['guest_name'] = 'Blocked Period'
                 
-                # For events with no guest name but phone info in description, use "Guest"
-                if not guest_info['guest_name'] and guest_info['guest_phone']:
-                    guest_info['guest_name'] = 'Guest'
+                # Final fallback for guest name if still empty
+                if not guest_info['guest_name']:
+                    guest_info['guest_name'] = 'Reserved'
                 
                 # Determine booking source
                 booking_source = 'unknown'
@@ -208,9 +225,9 @@ def parse_ical_events(ical_data: str) -> List[Dict]:
                     status = 'pending'
                 
                 booking = {
-                    'external_id': uid,
+                    'external_id': description_details['confirmation_code'] or uid, # Prioritize confirmation code
                     'guest_name': guest_info['guest_name'],
-                    'guest_phone': guest_info['guest_phone'],
+                    'phone_partial': description_details['phone_partial'],
                     'guest_email': guest_info['guest_email'],
                     'check_in': start_dt,
                     'check_out': end_dt,

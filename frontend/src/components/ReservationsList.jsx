@@ -87,7 +87,8 @@ export default function ReservationsList() {
                 {reservation.guest_name_partial || 'Guest'}
               </h3>
               <p className="text-sm text-gray-500 truncate">
-                {reservation.property && reservation.property.name ? reservation.property.name : 'Unknown Property'} • ID: {reservation.external_id || reservation.id?.slice(0, 8)}
+                {reservation.property?.name || 'Unknown Property'} 
+                {reservation.external_id && ` • ${reservation.external_id}`}
               </p>
             </div>
           </div>

@@ -320,7 +320,10 @@ export default function GuestList() {
                   </svg>
                   <div>
                     <h4 className="text-sm font-medium text-gray-900">{guest.property.name}</h4>
-                    <p className="text-sm text-gray-500">{guest.property.address}</p>
+                    <p className="text-sm text-gray-500">
+                      {guest.property.address}
+                      {guest.reservation?.external_id && ` • ${guest.reservation.external_id}`}
+                    </p>
                     <div className="mt-1 flex items-center text-sm text-gray-500">
                       <svg className="h-4 w-4 text-gray-400 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -346,12 +349,10 @@ export default function GuestList() {
                   <dt className="text-sm font-medium text-gray-500">Birthdate</dt>
                   <dd className="mt-1 text-sm text-gray-900">{formatDate(guest.birthdate)}</dd>
                 </div>
-                {guest.phone && (
-                  <div>
-                    <dt className="text-sm font-medium text-gray-500">Phone</dt>
-                    <dd className="mt-1 text-sm text-gray-900 truncate">{guest.phone}</dd>
-                  </div>
-                )}
+                <div>
+                  <dt className="text-sm font-medium text-gray-500">Phone</dt>
+                  <dd className="mt-1 text-sm text-gray-900 truncate">{guest.phone || guest.reservation?.phone_partial || 'Pending'}</dd>
+                </div>
                 {guest.email && (
                   <div>
                     <dt className="text-sm font-medium text-gray-500">Email</dt>

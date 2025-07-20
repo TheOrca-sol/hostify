@@ -173,15 +173,13 @@ class Guest(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
         
-        # Add property information if reservation exists
-        if self.reservation and self.reservation.property:
-            data['property'] = {
-                'id': str(self.reservation.property.id),
-                'name': self.reservation.property.name,
-                'address': self.reservation.property.address
-            }
-            data['check_in'] = self.reservation.check_in.isoformat() if self.reservation.check_in else None
-            data['check_out'] = self.reservation.check_out.isoformat() if self.reservation.check_out else None
+        # Add reservation and property information if reservation exists
+        if self.reservation:
+            data['reservation'] = self.reservation.to_dict()
+            if self.reservation.property:
+                data['property'] = self.reservation.property.to_dict()
+                data['check_in'] = self.reservation.check_in.isoformat() if self.reservation.check_in else None
+                data['check_out'] = self.reservation.check_out.isoformat() if self.reservation.check_out else None
         
         return data
 

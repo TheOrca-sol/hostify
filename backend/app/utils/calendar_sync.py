@@ -53,6 +53,7 @@ def sync_property_calendar(property):
                 reservation.check_out = event_data['check_out']
                 reservation.status = event_data['status']
                 reservation.guest_name_partial = event_data['guest_name']
+                reservation.phone_partial = event_data['phone_partial']
                 reservation.raw_data = event_data['raw_data']
             else:
                 # Create new reservation
@@ -64,6 +65,7 @@ def sync_property_calendar(property):
                     status=event_data['status'],
                     sync_source='ical',
                     guest_name_partial=event_data['guest_name'],
+                    phone_partial=event_data['phone_partial'],
                     raw_data=event_data['raw_data']
                 )
                 db.session.add(reservation)
