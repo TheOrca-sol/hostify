@@ -41,13 +41,18 @@ def get_templates():
             return jsonify({'error': 'User not found'}), 404
 
         property_id = request.args.get('property_id')
+        manual_only = request.args.get('manual', 'false').lower() == 'true'
         
         query = MessageTemplate.query.filter_by(user_id=user['id'])
+        
         if property_id:
             query = query.filter(
                 (MessageTemplate.property_id == property_id) |
                 (MessageTemplate.property_id.is_(None))
             )
+        
+        if manual_only:
+            query = query.filter(MessageTemplate.trigger_event.is_(None))
         
         templates = query.order_by(MessageTemplate.created_at.desc()).all()
         
@@ -215,6 +220,62 @@ def cancel_scheduled_message(message_id):
             'success': False,
             'error': 'Failed to cancel message'
         }), 500
+
+@messages_bp.route('/send-manual', methods=['POST'])
+@require_auth
+def send_manual_message():
+    """Send a manual message immediately."""
+    try:
+        user = get_user_by_firebase_uid(g.user_id)
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+        data = request.get_json()
+        template_id = data.get('template_id')
+        reservation_id = data.get('reservation_id')
+
+        if not template_id or not reservation_id:
+            return jsonify({'success': False, 'error': 'template_id and reservation_id are required'}), 400
+
+        # Fetch the template and reservation to ensure they exist and belong to the user
+        template = MessageTemplate.query.filter_by(id=uuid.UUID(template_id), user_id=user['id']).first()
+        if not template:
+            return jsonify({'success': False, 'error': 'Template not found'}), 404
+
+        reservation = Reservation.query.get(uuid.UUID(reservation_id))
+        if not reservation or str(reservation.property.user_id) != user['id']:
+            return jsonify({'success': False, 'error': 'Reservation not found'}), 404
+        
+        guest = reservation.guests[0] if reservation.guests else None
+        if not guest:
+            return jsonify({'success': False, 'error': 'No guest associated with this reservation'}), 404
+
+        # Create a new scheduled message record to be sent immediately
+        new_message = ScheduledMessage(
+            template_id=template.id,
+            reservation_id=reservation.id,
+            guest_id=guest.id,
+            scheduled_for=datetime.now(timezone.utc),
+            status='scheduled', # It will be updated to 'sent' by the service
+            channels=template.channels
+        )
+        db.session.add(new_message)
+        db.session.commit()
+
+        # Use the message service to send it now
+        message_service = MessageService()
+        success = message_service.send_scheduled_message_sync(new_message)
+
+        if success:
+            return jsonify({'success': True, 'message': 'Message sent successfully.'})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to send message.'}), 500
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error in send_manual_message: {str(e)}")
+        return jsonify({'success': False, 'error': 'An unexpected error occurred.'}), 500
+
 
 @messages_bp.route('/schedule-reservation', methods=['POST'])
 @require_auth

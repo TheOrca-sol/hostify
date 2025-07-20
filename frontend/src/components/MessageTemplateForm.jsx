@@ -126,6 +126,7 @@ export default function MessageTemplateForm({ template, properties, templateType
             <option value="">Select Trigger</option>
             <option value="check_in">Check-in</option>
             <option value="check_out">Check-out</option>
+            <option value="verification">Verification</option>
           </select>
         </div>
         <p className="text-xs text-gray-500 mt-2">Leave the trigger blank to send this message manually.</p>

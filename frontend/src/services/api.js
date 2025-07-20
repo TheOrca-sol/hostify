@@ -649,12 +649,15 @@ export const api = {
   },
 
   // Message Templates
-  async getMessageTemplates(propertyId = null) {
+  async getMessageTemplates(params = {}) {
     try {
       const token = await this.getAuthToken();
-      const url = propertyId 
-        ? `${API_BASE_URL}/messages/templates?property_id=${propertyId}`
-        : `${API_BASE_URL}/messages/templates`;
+      const url = new URL(`${API_BASE_URL}/messages/templates`);
+      Object.keys(params).forEach(key => {
+        if (params[key]) {
+          url.searchParams.append(key, params[key]);
+        }
+      });
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -664,6 +667,32 @@ export const api = {
       return data || [];
     } catch (error) {
       console.error('Error getting message templates:', error);
+      throw error;
+    }
+  },
+
+  async getManualMessageTemplates() {
+    return this.getMessageTemplates({ manual: true });
+  },
+
+  async sendManualMessage(data) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/messages/send-manual`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send message');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error sending manual message:', error);
       throw error;
     }
   },

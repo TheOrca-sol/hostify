@@ -1,306 +1,119 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { api } from '../services/api'
 import { toast } from './Toaster'
-import { Mail, FileText, Send, AlertCircle, CheckCircle, Clock, RefreshCw } from 'lucide-react'
+import { Mail, Send, Clock, RefreshCw, XCircle } from 'lucide-react'
 
 export default function CommunicationCenter() {
   const [loading, setLoading] = useState(true)
-  const [pendingMessages, setPendingMessages] = useState([])
-  const [sentMessages, setSentMessages] = useState([])
-  const [pendingContracts, setPendingContracts] = useState([])
-  const [activeTab, setActiveTab] = useState('pending')
-  const [sendingMessage, setSendingMessage] = useState(null)
+  const [scheduledMessages, setScheduledMessages] = useState([])
+  const [error, setError] = useState(null)
+  const [actionInProgress, setActionInProgress] = useState(null) // Tracks message ID for actions
 
-  useEffect(() => {
-    loadCommunicationData()
-  }, [])
-
-  const loadCommunicationData = async () => {
+  const loadScheduledMessages = useCallback(async () => {
     try {
       setLoading(true)
-      const [messagesRes, contractsRes] = await Promise.all([
-        api.getScheduledMessages(), // No reservation_id needed
-        api.getPendingContracts()
-      ])
+      setError(null)
+      const response = await api.getScheduledMessages()
 
-      // Handle messages
-      if (messagesRes.success) {
-        if (Array.isArray(messagesRes.messages)) {
-          const { pending, sent } = messagesRes.messages.reduce((acc, msg) => {
-            if (msg.status === 'scheduled') {
-              acc.pending.push(msg);
-            } else {
-              acc.sent.push(msg);
-            }
-            return acc;
-          }, { pending: [], sent: [] });
-
-          setPendingMessages(pending);
-          setSentMessages(sent);
-        } else {
-          console.error("messagesRes.messages is not an array:", messagesRes.messages);
-          toast.error('Received invalid message data from the server.');
-        }
+      if (response.success) {
+        // Filter for only messages that are still scheduled
+        setScheduledMessages(response.messages.filter(m => m.status === 'scheduled') || [])
       } else {
-        toast.error(messagesRes.error || 'Failed to load messages');
+        setError(response.error || 'Failed to load scheduled messages.')
+        toast.error(response.error || 'Failed to load scheduled messages.')
       }
-
-      // Handle contracts
-      if (contractsRes.success) {
-        setPendingContracts(contractsRes.contracts || [])
-      } else {
-        toast.error(contractsRes.error || 'Failed to load contracts')
-      }
-    } catch (error) {
-      console.error('Error loading communication data:', error)
-      toast.error('Failed to load communication data. Please try again.')
+    } catch (err) {
+      setError('An unexpected error occurred.')
+      toast.error('An unexpected error occurred.')
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const handleSendMessage = async (messageId) => {
+  useEffect(() => {
+    loadScheduledMessages()
+  }, [loadScheduledMessages])
+
+  const handleAction = async (action, messageId, successMsg) => {
+    setActionInProgress(messageId)
     try {
-      setSendingMessage(messageId)
-      const response = await api.sendScheduledMessage(messageId)
+      const response = await action(messageId)
       if (response.success) {
-        toast.success('Message sent successfully')
-        loadCommunicationData()  // Refresh data
+        toast.success(successMsg)
+        loadScheduledMessages() // Refresh the list
       } else {
-        toast.error(response.error || 'Failed to send message')
+        toast.error(response.error || `Failed to perform action.`)
       }
     } catch (error) {
-      console.error('Error sending message:', error)
-      toast.error('Failed to send message')
+      toast.error(`An error occurred while performing the action.`)
     } finally {
-      setSendingMessage(null)
+      setActionInProgress(null)
     }
   }
 
-  const handleCancelMessage = async (messageId) => {
-    try {
-      const response = await api.cancelScheduledMessage(messageId)
-      if (response.success) {
-        toast.success('Message cancelled')
-        loadCommunicationData()  // Refresh data
-      } else {
-        toast.error(response.error || 'Failed to cancel message')
-      }
-    } catch (error) {
-      console.error('Error cancelling message:', error)
-      toast.error('Failed to cancel message')
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-2 text-sm text-gray-500">Loading communication center...</p>
+  const MessageCard = ({ msg }) => (
+    <div className="bg-white p-4 border border-gray-200 rounded-lg">
+      <div className="flex justify-between items-start">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-blue-600">{msg.template?.name || 'Scheduled Message'}</p>
+          <p className="text-sm text-gray-700">To: {msg.guest?.full_name || 'Guest'}</p>
+          <p className="text-xs text-gray-500">For: {msg.reservation?.property?.name || 'Property'}</p>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <p className="text-sm font-medium text-gray-800">
+            {new Date(msg.scheduled_for).toLocaleDateString()}
+          </p>
+          <p className="text-xs text-gray-500">
+            at {new Date(msg.scheduled_for).toLocaleTimeString()}
+          </p>
+        </div>
       </div>
-    )
-  }
+      <div className="mt-2 p-3 bg-gray-50 rounded text-sm text-gray-600">
+        {msg.template?.content.substring(0, 150)}...
+      </div>
+      <div className="mt-3 flex justify-end space-x-2">
+        <button
+          onClick={() => handleAction(api.cancelScheduledMessage, msg.id, 'Message cancelled.')}
+          disabled={actionInProgress === msg.id}
+          className="px-3 py-1 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+        >
+          <XCircle className="h-4 w-4 inline mr-1" /> Cancel
+        </button>
+        <button
+          onClick={() => handleAction(api.sendScheduledMessage, msg.id, 'Message sent successfully!')}
+          disabled={actionInProgress === msg.id}
+          className="px-3 py-1 text-xs font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
+        >
+          <Send className="h-4 w-4 inline mr-1" /> Send Now
+        </button>
+      </div>
+    </div>
+  )
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-medium text-gray-900">Communication Center</h2>
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={loadCommunicationData}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-          >
-            <RefreshCw className="-ml-0.5 mr-2 h-4 w-4" /> Refresh
-          </button>
+        <h2 className="text-lg font-medium text-gray-900 flex items-center">
+          <Clock className="h-5 w-5 mr-2 text-gray-500" />
+          Scheduled Messages
+        </h2>
+        <button onClick={loadScheduledMessages} disabled={loading} className="text-sm font-medium text-blue-600 hover:text-blue-800">
+          <RefreshCw className={`h-4 w-4 inline mr-1 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="text-center py-12">Loading...</div>
+      ) : error ? (
+        <div className="text-center py-12 text-red-500">{error}</div>
+      ) : scheduledMessages.length === 0 ? (
+        <div className="text-center py-12">No messages are currently scheduled.</div>
+      ) : (
+        <div className="space-y-4">
+          {scheduledMessages.map(msg => <MessageCard key={msg.id} msg={msg} />)}
         </div>
-      </div>
-
-      {/* Navigation Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-          <button
-            onClick={() => setActiveTab('pending')}
-            className={`${
-              activeTab === 'pending'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
-          >
-            <Clock className="h-5 w-5 mr-2" />
-            Pending ({pendingMessages.length + pendingContracts.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('sent')}
-            className={`${
-              activeTab === 'sent'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
-          >
-            <CheckCircle className="h-5 w-5 mr-2" />
-            Sent History ({sentMessages.length})
-          </button>
-        </nav>
-      </div>
-
-      {/* Content Area */}
-      <div className="space-y-6">
-        {activeTab === 'pending' && (
-          <>
-            {/* Pending Messages */}
-            {pendingMessages.length > 0 && (
-              <div className="bg-white shadow rounded-lg divide-y divide-gray-200">
-                <div className="p-4 bg-gray-50 rounded-t-lg">
-                  <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                    <Mail className="h-5 w-5 mr-2 text-gray-500" />
-                    Pending Messages
-                  </h3>
-                </div>
-                <div className="divide-y divide-gray-200">
-                  {pendingMessages.map((message) => (
-                    <div key={message.id} className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-900">
-                            {message.template?.name || 'Message'}
-                          </h4>
-                          <p className="text-sm text-gray-500">
-                            To: {message.guest?.full_name || 'Guest'} ({message.guest?.email})
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            Scheduled: {new Date(message.scheduled_for).toLocaleString()}
-                          </p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => handleSendMessage(message.id)}
-                            disabled={sendingMessage === message.id}
-                            className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                          >
-                            {sendingMessage === message.id ? (
-                              <>
-                                <RefreshCw className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                                Sending...
-                              </>
-                            ) : (
-                              <>
-                                <Send className="-ml-1 mr-2 h-4 w-4" />
-                                Send Now
-                              </>
-                            )}
-                          </button>
-                          <button
-                            onClick={() => handleCancelMessage(message.id)}
-                            className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Pending Contracts */}
-            {pendingContracts.length > 0 && (
-              <div className="bg-white shadow rounded-lg divide-y divide-gray-200">
-                <div className="p-4 bg-gray-50 rounded-t-lg">
-                  <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                    <FileText className="h-5 w-5 mr-2 text-gray-500" />
-                    Pending Contracts
-                  </h3>
-                </div>
-                <div className="divide-y divide-gray-200">
-                  {pendingContracts.map((contract) => (
-                    <div key={contract.id} className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-sm font-medium text-gray-900">
-                            Contract for {contract.guest?.full_name || 'Guest'}
-                          </h4>
-                          <p className="text-sm text-gray-500">
-                            Status: {contract.contract_status}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            Generated: {new Date(contract.created_at).toLocaleString()}
-                          </p>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => window.open(`/contracts/${contract.id}`, '_blank')}
-                            className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                          >
-                            <FileText className="-ml-1 mr-2 h-4 w-4" />
-                            View Contract
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {pendingMessages.length === 0 && pendingContracts.length === 0 && (
-              <div className="text-center py-12">
-                <div className="bg-gray-100 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                  <CheckCircle className="h-8 w-8 text-gray-400" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-900">No Pending Items</h3>
-                <p className="mt-2 text-sm text-gray-500">
-                  All messages and contracts have been sent or processed.
-                </p>
-              </div>
-            )}
-          </>
-        )}
-
-        {activeTab === 'sent' && (
-          <div className="bg-white shadow rounded-lg divide-y divide-gray-200">
-            <div className="p-4 bg-gray-50 rounded-t-lg">
-              <h3 className="text-lg font-medium text-gray-900">Message History</h3>
-            </div>
-            {sentMessages.length > 0 ? (
-              <div className="divide-y divide-gray-200">
-                {sentMessages.map((message) => (
-                  <div key={message.id} className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-900">
-                          {message.template?.name || 'Message'}
-                        </h4>
-                        <p className="text-sm text-gray-500">
-                          To: {message.guest?.full_name || 'Guest'} ({message.guest?.email})
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          Sent: {new Date(message.sent_at).toLocaleString()}
-                        </p>
-                        <div className="mt-1 flex items-center">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            message.delivery_status === 'delivered'
-                              ? 'bg-green-100 text-green-800'
-                              : message.delivery_status === 'failed'
-                              ? 'bg-red-100 text-red-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {message.delivery_status}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-6 text-center">
-                <p className="text-sm text-gray-500">No messages have been sent yet.</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
-} 
+}

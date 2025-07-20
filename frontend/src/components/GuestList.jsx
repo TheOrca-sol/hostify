@@ -1,249 +1,243 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { api, API_BASE_URL } from '../services/api'
-import { toast } from '../components/Toaster'
-import { FileText, Send, RefreshCw, Edit2, Search, SlidersHorizontal, UserPlus } from 'lucide-react'
-import GuestEditForm from './GuestEditForm'
-import { useDebounce } from '../hooks/useDebounce'
+import React, { useState, useEffect, useCallback } from 'react';
+import { api } from '../services/api';
+import { toast } from './Toaster';
+import { Send, MessageSquare, UserPlus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 
-export default function GuestList() {
-  const [guests, setGuests] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  
-  // State for modals and actions
-  const [sendingLink, setSendingLink] = useState(null)
-  const [editingGuest, setEditingGuest] = useState(null)
+// Modal for sending a manual message
+const ManualSendModal = ({ guest, onClose, onSend }) => {
+  const [templates, setTemplates] = useState([]);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  // Filtering and Pagination state
-  const [properties, setProperties] = useState([])
-  const [selectedProperty, setSelectedProperty] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  
-  const debouncedSearchQuery = useDebounce(searchQuery, 500)
-
-  const loadGuests = useCallback(async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      const params = {
-        page: currentPage,
-        per_page: 9,
-        search: debouncedSearchQuery,
-        property_id: selectedProperty,
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        setLoading(true);
+        const response = await api.getManualMessageTemplates();
+        if (response.success) {
+          setTemplates(response.templates || []);
+        } else {
+          toast.error(response.error || 'Failed to load message templates.');
+        }
+      } catch (error) {
+        toast.error('An unexpected error occurred while fetching templates.');
+      } finally {
+        setLoading(false);
       }
+    };
+    fetchTemplates();
+  }, []);
 
-      const response = await api.getGuests(params)
+  const handleSend = () => {
+    if (!selectedTemplate) {
+      toast.error('Please select a template to send.');
+      return;
+    }
+    onSend(selectedTemplate, guest.reservation_id);
+  };
+
+  const selectedTemplateContent = templates.find(t => t.id === selectedTemplate)?.content || '';
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-lg">
+        <h2 className="text-xl font-bold mb-4">Send Manual Message to {guest.full_name}</h2>
+        {loading ? (
+          <div>Loading templates...</div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Select Template</label>
+              <select
+                value={selectedTemplate}
+                onChange={(e) => setSelectedTemplate(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2"
+              >
+                <option value="">-- Choose a template --</option>
+                {templates.map(template => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selectedTemplateContent && (
+              <div className="border p-3 rounded-md bg-gray-50">
+                <h4 className="font-semibold text-sm mb-2">Message Preview:</h4>
+                <p className="text-sm text-gray-600 whitespace-pre-wrap">{selectedTemplateContent}</p>
+              </div>
+            )}
+          </div>
+        )}
+        <div className="flex justify-end gap-4 mt-6">
+          <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg">Cancel</button>
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={loading || !selectedTemplate}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:bg-gray-400 flex items-center gap-2"
+          >
+            <Send size={16} />
+            Send Now
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function GuestList({ propertyId, onAddGuest }) {
+  const [guests, setGuests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [expandedGuest, setExpandedGuest] = useState(null);
+  const [isSendModalOpen, setIsSendModalOpen] = useState(false);
+  const [sendingGuest, setSendingGuest] = useState(null);
+
+  const fetchGuests = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await api.getGuests({ property_id: propertyId });
       if (response.success) {
-        setGuests(response.guests || [])
-        setTotalPages(response.pages || 1)
+        setGuests(response.guests || []);
       } else {
-        setError(response.error || 'Failed to load guests')
+        setError(response.error || 'Failed to load guests.');
       }
     } catch (err) {
-      setError('An unexpected error occurred.')
+      setError('An unexpected error occurred.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [currentPage, debouncedSearchQuery, selectedProperty])
+  }, [propertyId]);
 
   useEffect(() => {
-    loadGuests()
-  }, [loadGuests])
+    fetchGuests();
+  }, [fetchGuests]);
 
-  useEffect(() => {
-    const loadProperties = async () => {
-      const result = await api.getProperties()
+  const handleSendVerification = async (guestId) => {
+    try {
+      const result = await api.sendVerificationLink(guestId);
       if (result.success) {
-        setProperties(result.properties || [])
-      }
-    }
-    loadProperties()
-  }, [])
-
-  const handleSendVerificationLink = async (guestId) => {
-    setSendingLink(guestId)
-    try {
-      const response = await api.sendVerificationLink(guestId)
-      if (response.success) {
-        toast.success('Verification link sent successfully')
-        loadGuests() // Refresh list
+        toast.success('Verification link sent!');
+        fetchGuests(); // Refresh to show updated status
       } else {
-        toast.error(response.error || 'Failed to send link')
-      }
-    } catch (err) {
-      toast.error('Failed to send verification link')
-    } finally {
-      setSendingLink(null)
-    }
-  }
-
-  const handleGuestUpdated = () => {
-    loadGuests() // Refresh the entire list to ensure data consistency
-    toast.success('Guest information updated successfully')
-  }
-  
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage)
-    }
-  }
-
-  const getStatusInfo = (guest) => {
-    switch (guest.verification_status) {
-      case 'verified':
-        return { label: 'Verified', color: 'bg-green-100 text-green-800' }
-      case 'pending':
-        return guest.verification_link_sent
-          ? { label: 'Awaiting Verification', color: 'bg-yellow-100 text-yellow-800' }
-          : { label: 'Ready to Send', color: 'bg-blue-100 text-blue-800' }
-      default:
-        return { label: guest.verification_status, color: 'bg-red-100 text-red-800' }
-    }
-  }
-
-  const handleViewDocument = async (guest) => {
-    try {
-      const tokenResponse = await api.generateFileToken();
-      if (tokenResponse.success) {
-        const fileUrl = `${API_BASE_URL}/uploads/${guest.id_document_path.split('/').slice(-1)[0]}?token=${tokenResponse.token}`;
-        window.open(fileUrl, '_blank');
-      } else {
-        toast.error('Could not authorize file view.');
+        toast.error(result.error || 'Failed to send verification link.');
       }
     } catch (error) {
-      toast.error('Error preparing file for viewing.');
+      toast.error('An error occurred while sending the link.');
     }
   };
 
-  const GuestCard = ({ guest }) => {
-    const status = getStatusInfo(guest)
-    return (
-      <div className="bg-white shadow rounded-lg p-5 flex flex-col justify-between">
-        <div>
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center space-x-3 min-w-0">
-              <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                <UserPlus className="h-5 w-5 text-gray-500" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="text-md font-semibold text-gray-900 truncate">{guest.full_name || 'Guest'}</h3>
-                <p className="text-xs text-gray-500 truncate">{guest.property?.name || 'Unknown Property'}</p>
-              </div>
-            </div>
-            <span className={`px-2 py-1 text-xs font-medium rounded-full text-center ${status.color}`}>
-              {status.label}
-            </span>
-          </div>
-          <div className="space-y-2 text-sm text-gray-600">
-            <p><strong>Reservation ID:</strong> {guest.reservation?.external_id || 'N/A'}</p>
-            <p><strong>Phone:</strong> {guest.phone || guest.reservation?.phone_partial || 'Pending'}</p>
-            <p><strong>Email:</strong> {guest.email || 'Pending'}</p>
-            <p><strong>Check-in:</strong> {new Date(guest.check_in).toLocaleDateString()}</p>
-          </div>
-        </div>
-        <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button onClick={() => setEditingGuest(guest)} className="text-sm font-medium text-blue-600 hover:text-blue-800">
-              <Edit2 className="h-4 w-4 inline mr-1" /> Edit
-            </button>
-            {guest.id_document_path && (
-              <button
-                onClick={() => handleViewDocument(guest)}
-                className="text-sm font-medium text-gray-600 hover:text-gray-800"
-              >
-                View Document
-              </button>
-            )}
-          </div>
-          {guest.verification_status === 'pending' && (
-            <button
-              onClick={() => handleSendVerificationLink(guest.id)}
-              disabled={sendingLink === guest.id}
-              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 disabled:opacity-50"
-            >
-              {sendingLink === guest.id ? 'Sending...' : 'Send Link'}
-            </button>
-          )}
-        </div>
-      </div>
-    )
-  }
+  const handleManualSend = async (templateId, reservationId) => {
+    try {
+      await api.sendManualMessage({ template_id: templateId, reservation_id: reservationId });
+      toast.success('Message sent successfully!');
+      setIsSendModalOpen(false);
+      setSendingGuest(null);
+    } catch (error) {
+      toast.error(error.message || 'Failed to send message.');
+    }
+  };
 
-  const PaginationControls = () => (
-    <div className="flex items-center justify-between mt-6">
-      <button
-        onClick={() => handlePageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
-      >
-        Previous
-      </button>
-      <span className="text-sm text-gray-700">
-        Page {currentPage} of {totalPages}
-      </span>
-      <button
-        onClick={() => handlePageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
-      >
-        Next
-      </button>
-    </div>
-  )
+  const getStatusBadge = (guest) => {
+    switch (guest.verification_status) {
+      case 'verified':
+        return { label: 'Verified', color: 'bg-green-100 text-green-800' };
+      case 'pending':
+        return { label: 'Pending', color: 'bg-yellow-100 text-yellow-800' };
+      case 'expired':
+        return { label: 'Expired', color: 'bg-red-100 text-red-800' };
+      default:
+        return { label: guest.verification_status, color: 'bg-gray-100 text-gray-800' };
+    }
+  };
+
+  if (loading) return <div>Loading guests...</div>;
+  if (error) return <div className="text-red-500">Error: {error}</div>;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="w-full md:w-1/3">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by name, email, phone, or ID..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
-            />
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <SlidersHorizontal className="h-5 w-5 text-gray-500" />
-          <select
-            value={selectedProperty}
-            onChange={(e) => setSelectedProperty(e.target.value)}
-            className="border border-gray-300 rounded-lg py-2 px-3"
-          >
-            <option value="">All Properties</option>
-            {properties.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        </div>
+    <div className="bg-white shadow rounded-lg">
+      <div className="p-4 border-b">
+        <h2 className="text-lg font-semibold flex items-center">
+          <MessageSquare className="mr-2" /> Guests
+        </h2>
       </div>
-
-      {loading ? (
-        <div className="text-center py-12">Loading guests...</div>
-      ) : error ? (
-        <div className="text-center py-12 text-red-500">{error}</div>
-      ) : guests.length === 0 ? (
-        <div className="text-center py-12">No guests found.</div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {guests.map((guest) => <GuestCard key={guest.id} guest={guest} />)}
-          </div>
-          <PaginationControls />
-        </>
-      )}
-
-      {editingGuest && (
-        <GuestEditForm
-          guest={editingGuest}
-          onClose={() => setEditingGuest(null)}
-          onGuestUpdated={handleGuestUpdated}
+      <div className="overflow-x-auto">
+        <table className="min-w-full">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guest</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reservation</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {guests.map(guest => (
+              <React.Fragment key={guest.id}>
+                <tr>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{guest.full_name || 'N/A'}</div>
+                    <div className="text-sm text-gray-500">{guest.phone || 'No phone'}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{guest.property?.name}</div>
+                    <div className="text-sm text-gray-500">
+                      {new Date(guest.check_in).toLocaleDateString()} - {new Date(guest.check_out).toLocaleDateString()}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(guest).color}`}>
+                      {getStatusBadge(guest).label}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex justify-end items-center space-x-2">
+                      {guest.verification_status === 'pending' && !guest.verification_link_sent && (
+                        <button onClick={() => handleSendVerification(guest.id)} className="text-indigo-600 hover:text-indigo-900" title="Send Verification Link">
+                          <Send size={18} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setSendingGuest(guest);
+                          setIsSendModalOpen(true);
+                        }}
+                        className="text-gray-600 hover:text-blue-600"
+                        title="Send Manual Message"
+                      >
+                        <MessageSquare size={18} />
+                      </button>
+                      <button onClick={() => setExpandedGuest(expandedGuest === guest.id ? null : guest.id)} className="text-gray-500 hover:text-gray-700">
+                        {expandedGuest === guest.id ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {expandedGuest === guest.id && (
+                  <tr>
+                    <td colSpan="4" className="p-4 bg-gray-50">
+                      {/* Expanded content can go here, e.g., guest details */}
+                      <div>Email: {guest.email || 'N/A'}</div>
+                      <div>Nationality: {guest.nationality || 'N/A'}</div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {isSendModalOpen && sendingGuest && (
+        <ManualSendModal
+          guest={sendingGuest}
+          onClose={() => {
+            setIsSendModalOpen(false);
+            setSendingGuest(null);
+          }}
+          onSend={handleManualSend}
         />
       )}
     </div>
-  )
+  );
 }

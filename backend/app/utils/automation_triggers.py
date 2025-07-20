@@ -1,8 +1,8 @@
-
 import logging
 
 from app.models import db, Contract, MessageTemplate, ContractTemplate
 from datetime import datetime, timedelta
+from app.utils.automation import AutomationService
 
 def trigger_post_reservation_actions(reservation):
     # 1. Generate a pending contract
@@ -58,5 +58,20 @@ def trigger_post_reservation_actions(reservation):
             logging.warning("No 'Welcome Message' template found for this property.")
     else:
         logging.info("auto_messaging is disabled for this property.")
+
+    db.session.commit()
+
+
+def trigger_post_verification_actions(guest):
+    # 1. Update contract with guest details
+    contract = Contract.query.filter_by(reservation_id=guest.reservation_id).first()
+    if contract:
+        contract.guest_id = guest.id
+        contract.contract_status = 'ready_to_send'
+        logging.info(f"Updated contract {contract.id} with guest details.")
+
+    # 2. Schedule verification-dependent messages
+    logging.info(f"Scheduling verification-dependent messages for guest {guest.id}")
+    AutomationService.schedule_messages_for_event(guest.id, 'verification')
 
     db.session.commit()

@@ -74,6 +74,7 @@ def send_verification_link(guest_id):
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
+from ..utils.automation_triggers import trigger_post_verification_actions
 @verification_bp.route('/verify/guest/<guest_id>', methods=['POST'])
 @require_auth
 def verify_guest(guest_id):
@@ -117,6 +118,9 @@ def verify_guest(guest_id):
         guest.verified_at = datetime.now(timezone.utc)
         
         db.session.commit()
+
+        # Trigger post-verification actions
+        trigger_post_verification_actions(guest)
         
         return jsonify({
             'success': True,
@@ -230,6 +234,9 @@ def submit_verification(token):
         guest.verified_at = datetime.now(timezone.utc)
         
         db.session.commit()
+
+        # Trigger post-verification actions
+        trigger_post_verification_actions(guest)
 
         return jsonify({'success': True, 'message': 'Verification submitted successfully'})
 
