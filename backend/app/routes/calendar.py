@@ -7,6 +7,7 @@ from flask import Blueprint, request, jsonify, g
 from app.models import db, Property, SyncLog, User
 from app.utils.auth import require_auth
 from app.utils.calendar_sync import sync_property_calendar, validate_ical_url
+from app.utils.database import get_property_by_ical_url
 from datetime import datetime
 from flask_cors import cross_origin
 
@@ -16,9 +17,17 @@ calendar_bp = Blueprint('calendar', __name__)
 @cross_origin()
 @require_auth
 def test_ical_url(ical_url):
-    """Test if an iCal URL is valid and accessible"""
+    """Test if an iCal URL is valid, accessible, and not already in use"""
     try:
-        # Validate the iCal URL
+        # First, check if the iCal URL is already used by another property
+        existing_property = get_property_by_ical_url(ical_url)
+        if existing_property:
+            return jsonify({
+                'success': False,
+                'error': 'This iCal link is already in use by another property.'
+            }), 409  # 409 Conflict
+
+        # If not a duplicate, validate the iCal URL itself
         is_valid = validate_ical_url(ical_url)
         if is_valid:
             return jsonify({

@@ -102,6 +102,17 @@ def get_property(property_id, user_id=None):
         print(f"Database error: {str(e)}")
         return None
 
+def get_property_by_ical_url(ical_url):
+    """
+    Get property by iCal URL to check for duplicates.
+    """
+    try:
+        property = Property.query.filter_by(ical_url=ical_url).first()
+        return property.to_dict() if property else None
+    except Exception as e:
+        print(f"Database error: {str(e)}")
+        return None
+
 def update_property(property_id, user_id, update_data):
     """
     Update a property

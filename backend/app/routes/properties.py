@@ -6,7 +6,7 @@ from flask import Blueprint, request, jsonify, g
 from ..utils.database import (
     create_property, get_user_properties, get_property, update_property,
     get_property_reservations, get_user_by_firebase_uid, create_user,
-    delete_property
+    delete_property, get_property_by_ical_url
 )
 from ..utils.auth import require_auth, get_current_user_id
 from datetime import datetime
@@ -37,7 +37,16 @@ def create_property_route():
         # Validate required fields
         if not property_data.get('name'):
             return jsonify({'success': False, 'error': 'Property name is required'}), 400
-        
+
+        # Validate for duplicate iCal URL
+        if property_data.get('ical_url'):
+            existing_property = get_property_by_ical_url(property_data['ical_url'])
+            if existing_property:
+                return jsonify({
+                    'success': False,
+                    'error': 'This iCal link is already in use by another property.'
+                }), 409
+
         # Create property
         property_id = create_property(user['id'], **property_data)
         
