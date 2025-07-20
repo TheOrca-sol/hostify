@@ -8,6 +8,7 @@ from ..utils.database import get_user_by_firebase_uid
 from ..utils.auth import require_auth
 from ..utils.ocr import process_id_document
 from ..utils.sms import send_sms
+from ..utils.automation import AutomationService
 from datetime import datetime, timezone, timedelta
 import uuid
 import os
@@ -63,7 +64,9 @@ def send_verification_link(guest_id):
         sms_result = send_sms(guest.phone, message_body)
 
         if sms_result['success']:
-            return jsonify({'success': True, 'message': 'Verification link sent successfully.'})
+            # This is the master trigger: schedule all other automated messages for this guest
+            AutomationService.schedule_messages_for_guest(guest.id)
+            return jsonify({'success': True, 'message': 'Verification link sent and automations scheduled.'})
         else:
             return jsonify({'success': False, 'error': sms_result.get('error', 'Failed to send SMS.')}), 500
 

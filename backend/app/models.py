@@ -347,6 +347,13 @@ class MessageTemplate(db.Model):
     channels = db.Column(db.ARRAY(db.Text), nullable=False)  # ['email', 'sms', 'whatsapp']
     variables = db.Column(JSON, nullable=True)
     active = db.Column(db.Boolean, nullable=False, server_default=text('true'))
+    
+    # Automation fields
+    trigger_event = db.Column(db.Text, nullable=True)  # e.g., 'check_in', 'check_out'
+    trigger_offset_value = db.Column(db.Integer, nullable=True)
+    trigger_offset_unit = db.Column(db.Text, nullable=True)  # e.g., 'days', 'hours'
+    trigger_direction = db.Column(db.Text, nullable=True)  # e.g., 'before', 'after'
+
     created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
     
     # Relationships
@@ -367,6 +374,10 @@ class MessageTemplate(db.Model):
             'channels': self.channels,
             'variables': self.variables,
             'active': self.active,
+            'trigger_event': self.trigger_event,
+            'trigger_offset_value': self.trigger_offset_value,
+            'trigger_offset_unit': self.trigger_offset_unit,
+            'trigger_direction': self.trigger_direction,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
