@@ -8,7 +8,8 @@ export default function PropertyForm({ onPropertyAdded, onCancel }) {
     ical_url: '',
     sync_frequency: 3,
     auto_verification: true,
-    auto_contract: true
+    auto_contract: true,
+    auto_messaging: true
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -222,6 +223,20 @@ export default function PropertyForm({ onPropertyAdded, onCancel }) {
               />
               <label htmlFor="auto_contract" className="ml-2 block text-sm text-gray-700">
                 Auto-generate contracts for verified guests
+              </label>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="auto_messaging"
+                name="auto_messaging"
+                checked={formData.auto_messaging}
+                onChange={handleChange}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="auto_messaging" className="ml-2 block text-sm text-gray-700">
+                Enable automated messaging (e.g., check-in instructions)
               </label>
             </div>
           </div>

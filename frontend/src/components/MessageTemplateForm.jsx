@@ -15,9 +15,8 @@ export default function MessageTemplateForm({ template, properties, templateType
     name: template?.name || '',
     template_type: template?.template_type || 'welcome',
     property_id: template?.property_id || '',
-    subject: template?.subject || '',
     content: template?.content || '',
-    channels: template?.channels || ['sms'],
+    channels: ['sms'],
     language: template?.language || 'en',
     active: template?.active ?? true,
     // Automation fields

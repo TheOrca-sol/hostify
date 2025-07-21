@@ -53,6 +53,7 @@ class Property(db.Model):
     contract_template_id = db.Column(UUID(as_uuid=True), db.ForeignKey('contract_templates.id'), nullable=True)
     auto_verification = db.Column(db.Boolean, server_default=text('true'))  # Auto-send verification links
     auto_contract = db.Column(db.Boolean, server_default=text('true'))  # Auto-generate contracts
+    auto_messaging = db.Column(db.Boolean, server_default=text('true')) # Auto-send messages
     last_sync = db.Column(db.DateTime(timezone=True), nullable=True)
     settings = db.Column(JSON, nullable=True)  # Property-specific settings
     created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
@@ -72,6 +73,7 @@ class Property(db.Model):
             'contract_template_id': str(self.contract_template_id) if self.contract_template_id else None,
             'auto_verification': self.auto_verification,
             'auto_contract': self.auto_contract,
+            'auto_messaging': self.auto_messaging,
             'last_sync': self.last_sync.isoformat() if self.last_sync else None,
             'settings': self.settings,
             'created_at': self.created_at.isoformat() if self.created_at else None
@@ -315,7 +317,7 @@ class Message(db.Model):
     message_type = db.Column(db.Text, nullable=False)  # welcome, checkin, checkout, review
     template_id = db.Column(db.Text, nullable=True)  # Reference to message template
     content = db.Column(db.Text, nullable=False)
-    channel = db.Column(db.Text, nullable=False, default='email')  # email, sms, whatsapp
+    channel = db.Column(db.Text, nullable=False, default='sms')  # sms
     sent_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
     delivery_status = db.Column(db.Text, nullable=False, default='sent')  # sent, delivered, failed
     
@@ -344,7 +346,7 @@ class MessageTemplate(db.Model):
     subject = db.Column(db.Text, nullable=True)
     content = db.Column(db.Text, nullable=False)
     language = db.Column(db.Text, nullable=False, server_default='en')
-    channels = db.Column(db.ARRAY(db.Text), nullable=False)  # ['email', 'sms', 'whatsapp']
+    channels = db.Column(db.ARRAY(db.Text), nullable=False, default=['sms'])  # ['sms']
     variables = db.Column(JSON, nullable=True)
     active = db.Column(db.Boolean, nullable=False, server_default=text('true'))
     

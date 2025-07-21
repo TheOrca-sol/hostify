@@ -156,19 +156,7 @@ export default function MessageTemplates() {
                 </div>
               </div>
 
-              <div className="mb-4">
-                <h4 className="text-sm font-medium text-gray-600 mb-1">Channels:</h4>
-                <div className="flex gap-2">
-                  {(template.channels || []).map(channel => (
-                    <span
-                      key={channel}
-                      className="px-2 py-1 bg-gray-100 rounded-full text-xs capitalize"
-                    >
-                      {channel}
-                    </span>
-                  ))}
-                </div>
-              </div>
+              
 
               <div className="mb-4">
                 <h4 className="text-sm font-medium text-gray-600 mb-1">Content Preview:</h4>

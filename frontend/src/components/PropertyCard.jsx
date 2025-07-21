@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { api } from '../services/api'
 import { Link } from 'react-router-dom'
-import { FileText, RefreshCw, Trash2, AlertTriangle } from 'lucide-react'
+import { FileText, RefreshCw, Trash2, AlertTriangle, MessageSquare } from 'lucide-react'
 import { toast } from '../components/Toaster'
 
 export default function PropertyCard({ property, onPropertyUpdated, onPropertyDeleted, onSyncComplete }) {
@@ -134,6 +134,40 @@ export default function PropertyCard({ property, onPropertyUpdated, onPropertyDe
                 ) : (
                   <span className="text-gray-600">Manual</span>
                 )}
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        {/* Automated Messaging */}
+        <div className="px-6 py-4 border-t border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-sm font-medium text-gray-700">Automated Messaging</h4>
+            <Link
+              to={`/message-templates?property_id=${property.id}`}
+              className="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+            >
+              <MessageSquare size={16} />
+              <span>Manage Messages</span>
+            </Link>
+          </div>
+
+          <dl className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+            <div>
+              <dt className="text-sm font-medium text-gray-500">Status</dt>
+              <dd className="mt-1 text-sm text-gray-900">
+                {property.auto_messaging ? (
+                  <span className="text-green-600">✓ Enabled</span>
+                ) : (
+                  <span className="text-gray-600">Disabled</span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-sm font-medium text-gray-500">Active Templates</dt>
+              <dd className="mt-1 text-sm text-gray-900">
+                {/* This would require an additional query, for now we can leave it as a placeholder */}
+                <span className="text-blue-600">View</span>
               </dd>
             </div>
           </dl>

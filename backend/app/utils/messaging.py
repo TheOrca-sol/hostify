@@ -20,10 +20,7 @@ class MessageService:
             os.getenv('TWILIO_ACCOUNT_SID'),
             os.getenv('TWILIO_AUTH_TOKEN')
         )
-        self.sendgrid_client = SendGridAPIClient(os.getenv('SENDGRID_API_KEY'))
-        self.from_email = os.getenv('SENDGRID_FROM_EMAIL')
         self.twilio_phone = os.getenv('TWILIO_PHONE_NUMBER')
-        self.twilio_whatsapp = os.getenv('TWILIO_WHATSAPP_NUMBER')
     
     def send_scheduled_message_sync(self, scheduled_message: ScheduledMessage) -> bool:
         """Send a scheduled message immediately"""
@@ -40,7 +37,7 @@ class MessageService:
                 message_type=template.type,
                 template_id=str(template.id),
                 content=self._populate_variables(template.content, scheduled_message),
-                channel=scheduled_message.channels[0] if scheduled_message.channels else 'email'
+                channel='sms'
             )
             
             db.session.add(message)
@@ -81,33 +78,12 @@ class MessageService:
             
         return content
     
-    def _send_email_sync(self, to_email: str, subject: str, content: str) -> str:
-        """Send email using SendGrid (synchronous version)"""
-        message = Mail(
-            from_email=Email(self.from_email),
-            to_emails=To(to_email),
-            subject=subject,
-            html_content=Content("text/html", content)
-        )
-        
-        response = self.sendgrid_client.send(message)
-        return response.headers.get('X-Message-Id')
-    
     def _send_sms_sync(self, to_phone: str, content: str) -> str:
         """Send SMS using Twilio (synchronous version)"""
         message = self.twilio_client.messages.create(
             body=content,
             from_=self.twilio_phone,
             to=to_phone
-        )
-        return message.sid
-    
-    def _send_whatsapp_sync(self, to_phone: str, content: str) -> str:
-        """Send WhatsApp message using Twilio (synchronous version)"""
-        message = self.twilio_client.messages.create(
-            body=content,
-            from_=f"whatsapp:{self.twilio_whatsapp}",
-            to=f"whatsapp:{to_phone}"
         )
         return message.sid
     
@@ -137,7 +113,6 @@ def create_default_verification_templates(user_id):
         {
             'name': 'Guest Verification Request',
             'type': 'verification_request',
-            'subject': 'Action Required: Verify Your Identity for {property_name}',
             'content': """Dear {guest_name},
 
 We hope you're excited about your upcoming stay at {property_name}! To ensure a smooth check-in process, we need to verify your identity as per local regulations.
@@ -158,13 +133,12 @@ Phone: {host_phone}
 
 Best regards,
 The {property_name} Team""",
-            'channels': ['email'],
+            'channels': ['sms'],
             'language': 'en'
         },
         {
             'name': 'Verification Reminder',
             'type': 'verification_reminder',
-            'subject': 'Reminder: Complete Your Identity Verification for {property_name}',
             'content': """Dear {guest_name},
 
 This is a friendly reminder to complete your identity verification for your upcoming stay at {property_name}.
@@ -180,13 +154,12 @@ Phone: {host_phone}
 
 Best regards,
 The {property_name} Team""",
-            'channels': ['email', 'sms'],
+            'channels': ['sms'],
             'language': 'en'
         },
         {
             'name': 'Verification Complete',
             'type': 'verification_complete',
-            'subject': 'Identity Verified - Next Steps for {property_name}',
             'content': """Dear {guest_name},
 
 Thank you for completing your identity verification for {property_name}. Your rental contract is now being prepared and will be sent to you shortly for digital signature.
@@ -202,13 +175,12 @@ Phone: {host_phone}
 
 Best regards,
 The {property_name} Team""",
-            'channels': ['email'],
+            'channels': ['sms'],
             'language': 'en'
         },
         {
             'name': 'Contract Ready for Signing',
             'type': 'contract_ready',
-            'subject': 'Your Rental Contract is Ready - {property_name}',
             'content': """Dear {guest_name},
 
 Your rental contract for {property_name} is ready for your signature. Please review and sign the contract using the link below:
@@ -228,13 +200,12 @@ Phone: {host_phone}
 
 Best regards,
 The {property_name} Team""",
-            'channels': ['email'],
+            'channels': ['sms'],
             'language': 'en'
         },
         {
             'name': 'Contract Signing Reminder',
             'type': 'contract_reminder',
-            'subject': 'Reminder: Sign Your Rental Contract - {property_name}',
             'content': """Dear {guest_name},
 
 This is a reminder to sign your rental contract for {property_name}. Please complete this step to finalize your booking.
@@ -250,13 +221,12 @@ Phone: {host_phone}
 
 Best regards,
 The {property_name} Team""",
-            'channels': ['email', 'sms'],
+            'channels': ['sms'],
             'language': 'en'
         },
         {
             'name': 'Contract Signed Confirmation',
             'type': 'contract_signed',
-            'subject': 'Contract Signed - Welcome to {property_name}!',
             'content': """Dear {guest_name},
 
 Thank you for signing the rental contract for {property_name}. Your booking is now complete!
@@ -274,7 +244,7 @@ We look forward to welcoming you!
 
 Best regards,
 The {property_name} Team""",
-            'channels': ['email'],
+            'channels': ['sms'],
             'language': 'en'
         }
     ]
@@ -287,7 +257,6 @@ The {property_name} Team""",
             property_id=None,  # Default templates are available for all properties
             name=template_data['name'],
             type=template_data['type'],
-            subject=template_data['subject'],
             content=template_data['content'],
             language=template_data['language'],
             channels=template_data['channels'],
