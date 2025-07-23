@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 import { toast } from './Toaster';
-import { Send, MessageSquare, UserPlus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Send, MessageSquare, UserPlus, Trash2, ChevronDown, ChevronUp, Edit, FileText } from 'lucide-react';
+import GuestEditForm from './GuestEditForm';
 
 // Modal for sending a manual message
 const ManualSendModal = ({ guest, onClose, onSend }) => {
@@ -93,13 +94,27 @@ export default function GuestList({ propertyId, onAddGuest }) {
   const [expandedGuest, setExpandedGuest] = useState(null);
   const [isSendModalOpen, setIsSendModalOpen] = useState(false);
   const [sendingGuest, setSendingGuest] = useState(null);
+  const [editingGuest, setEditingGuest] = useState(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalGuests, setTotalGuests] = useState(0);
+  const [perPage] = useState(10);
 
-  const fetchGuests = useCallback(async () => {
+  const fetchGuests = useCallback(async (page = 1) => {
     try {
       setLoading(true);
-      const response = await api.getGuests({ property_id: propertyId });
+      const response = await api.getGuests({ 
+        property_id: propertyId,
+        page: page,
+        per_page: perPage
+      });
       if (response.success) {
         setGuests(response.guests || []);
+        setCurrentPage(response.current_page || 1);
+        setTotalPages(response.pages || 1);
+        setTotalGuests(response.total || 0);
       } else {
         setError(response.error || 'Failed to load guests.');
       }
@@ -108,18 +123,24 @@ export default function GuestList({ propertyId, onAddGuest }) {
     } finally {
       setLoading(false);
     }
-  }, [propertyId]);
+  }, [propertyId, perPage]);
 
   useEffect(() => {
-    fetchGuests();
+    fetchGuests(1);
   }, [fetchGuests]);
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      fetchGuests(newPage);
+    }
+  };
 
   const handleSendVerification = async (guestId) => {
     try {
       const result = await api.sendVerificationLink(guestId);
       if (result.success) {
         toast.success('Verification link sent!');
-        fetchGuests(); // Refresh to show updated status
+        fetchGuests(currentPage); // Refresh current page
       } else {
         toast.error(result.error || 'Failed to send verification link.');
       }
@@ -136,6 +157,31 @@ export default function GuestList({ propertyId, onAddGuest }) {
       setSendingGuest(null);
     } catch (error) {
       toast.error(error.message || 'Failed to send message.');
+    }
+  };
+
+  const handleGuestUpdated = (updatedGuest) => {
+    setGuests(prevGuests => 
+      prevGuests.map(guest => 
+        guest.id === updatedGuest.id ? updatedGuest : guest
+      )
+    );
+    toast.success('Guest information updated successfully!');
+  };
+
+  const handleViewDocument = async (guest) => {
+    if (!guest.id_document_path) {
+      toast.error('No document uploaded for this guest');
+      return;
+    }
+
+    try {
+      const result = await api.viewGuestDocument(guest.id);
+      if (!result.success) {
+        toast.error(result.error || 'Failed to view document');
+      }
+    } catch (error) {
+      toast.error('Failed to view document');
     }
   };
 
@@ -160,6 +206,11 @@ export default function GuestList({ propertyId, onAddGuest }) {
       <div className="p-4 border-b">
         <h2 className="text-lg font-semibold flex items-center">
           <MessageSquare className="mr-2" /> Guests
+          {totalGuests > 0 && (
+            <span className="ml-2 text-sm text-gray-500">
+              ({totalGuests} total guest{totalGuests !== 1 ? 's' : ''})
+            </span>
+          )}
         </h2>
       </div>
       <div className="overflow-x-auto">
@@ -179,12 +230,18 @@ export default function GuestList({ propertyId, onAddGuest }) {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{guest.full_name || 'N/A'}</div>
                     <div className="text-sm text-gray-500">{guest.phone || 'No phone'}</div>
+                    {guest.email && (
+                      <div className="text-xs text-gray-400">{guest.email}</div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{guest.property?.name}</div>
+                    <div className="text-sm text-gray-900">{guest.property?.name || 'Unknown Property'}</div>
                     <div className="text-sm text-gray-500">
-                      {new Date(guest.check_in).toLocaleDateString()} - {new Date(guest.check_out).toLocaleDateString()}
+                      {guest.check_in ? new Date(guest.check_in).toLocaleDateString() : 'N/A'} - {guest.check_out ? new Date(guest.check_out).toLocaleDateString() : 'N/A'}
                     </div>
+                    {guest.reservation?.platform && (
+                      <div className="text-xs text-gray-400">{guest.reservation.platform}</div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(guest).color}`}>
@@ -193,6 +250,22 @@ export default function GuestList({ propertyId, onAddGuest }) {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end items-center space-x-2">
+                      <button
+                        onClick={() => setEditingGuest(guest)}
+                        className="text-blue-600 hover:text-blue-900"
+                        title="Edit Guest"
+                      >
+                        <Edit size={18} />
+                      </button>
+                      {guest.id_document_path && (
+                        <button
+                          onClick={() => handleViewDocument(guest)}
+                          className="text-green-600 hover:text-green-900"
+                          title="View Document"
+                        >
+                          <FileText size={18} />
+                        </button>
+                      )}
                       {guest.verification_status === 'pending' && !guest.verification_link_sent && (
                         <button onClick={() => handleSendVerification(guest.id)} className="text-indigo-600 hover:text-indigo-900" title="Send Verification Link">
                           <Send size={18} />
@@ -217,9 +290,68 @@ export default function GuestList({ propertyId, onAddGuest }) {
                 {expandedGuest === guest.id && (
                   <tr>
                     <td colSpan="4" className="p-4 bg-gray-50">
-                      {/* Expanded content can go here, e.g., guest details */}
-                      <div>Email: {guest.email || 'N/A'}</div>
-                      <div>Nationality: {guest.nationality || 'N/A'}</div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Personal Information */}
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-gray-900 text-sm">Personal Information</h4>
+                          <div className="space-y-1 text-sm">
+                            <div><span className="font-medium text-gray-700">Full Name:</span> {guest.full_name || 'N/A'}</div>
+                            <div><span className="font-medium text-gray-700">Email:</span> {guest.email || 'N/A'}</div>
+                            <div><span className="font-medium text-gray-700">Phone:</span> {guest.phone || 'N/A'}</div>
+                            <div><span className="font-medium text-gray-700">Nationality:</span> {guest.nationality || 'N/A'}</div>
+                            <div><span className="font-medium text-gray-700">Birthdate:</span> {guest.birthdate ? new Date(guest.birthdate).toLocaleDateString() : 'N/A'}</div>
+                            <div><span className="font-medium text-gray-700">Address:</span> {guest.address || 'N/A'}</div>
+                          </div>
+                        </div>
+                        
+                        {/* Document & Verification Information */}
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-gray-900 text-sm">Document & Verification</h4>
+                          <div className="space-y-1 text-sm">
+                            <div><span className="font-medium text-gray-700">ID/Passport:</span> {guest.cin_or_passport || 'N/A'}</div>
+                            <div><span className="font-medium text-gray-700">Document Type:</span> {guest.document_type || 'N/A'}</div>
+                            <div><span className="font-medium text-gray-700">Verification Status:</span> 
+                              <span className={`ml-1 px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(guest).color}`}>
+                                {getStatusBadge(guest).label}
+                              </span>
+                            </div>
+                            {guest.verified_at && (
+                              <div><span className="font-medium text-gray-700">Verified At:</span> {new Date(guest.verified_at).toLocaleString()}</div>
+                            )}
+                            {guest.verification_link_sent && (
+                              <div><span className="font-medium text-gray-700">Verification Link:</span> <span className="text-green-600">Sent</span></div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Reservation Information */}
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-gray-900 text-sm">Reservation Details</h4>
+                          <div className="space-y-1 text-sm">
+                            <div><span className="font-medium text-gray-700">Property:</span> {guest.property?.name || 'N/A'}</div>
+                            <div><span className="font-medium text-gray-700">Check-in:</span> {guest.check_in ? new Date(guest.check_in).toLocaleDateString() : 'N/A'}</div>
+                            <div><span className="font-medium text-gray-700">Check-out:</span> {guest.check_out ? new Date(guest.check_out).toLocaleDateString() : 'N/A'}</div>
+                            {guest.reservation?.platform && (
+                              <div><span className="font-medium text-gray-700">Platform:</span> {guest.reservation.platform}</div>
+                            )}
+                            {guest.reservation?.external_id && (
+                              <div><span className="font-medium text-gray-700">Booking ID:</span> {guest.reservation.external_id}</div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* System Information */}
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-gray-900 text-sm">System Information</h4>
+                          <div className="space-y-1 text-sm">
+                            <div><span className="font-medium text-gray-700">Guest ID:</span> <span className="font-mono text-xs">{guest.id}</span></div>
+                            <div><span className="font-medium text-gray-700">Created:</span> {guest.created_at ? new Date(guest.created_at).toLocaleString() : 'N/A'}</div>
+                            {guest.id_document_path && (
+                              <div><span className="font-medium text-gray-700">Document Uploaded:</span> <span className="text-green-600">Yes</span></div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -228,6 +360,73 @@ export default function GuestList({ propertyId, onAddGuest }) {
           </tbody>
         </table>
       </div>
+      
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="px-6 py-4 border-t bg-gray-50">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-700">
+              Showing {((currentPage - 1) * perPage) + 1} to {Math.min(currentPage * perPage, totalGuests)} of {totalGuests} guests
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`px-3 py-1 text-sm font-medium rounded-md ${
+                  currentPage === 1
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                Previous
+              </button>
+              
+              {/* Page Numbers */}
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => handlePageChange(pageNum)}
+                      className={`px-3 py-1 text-sm font-medium rounded-md ${
+                        currentPage === pageNum
+                          ? 'bg-blue-600 text-white'
+                          : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`px-3 py-1 text-sm font-medium rounded-md ${
+                  currentPage === totalPages
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {isSendModalOpen && sendingGuest && (
         <ManualSendModal
           guest={sendingGuest}
@@ -236,6 +435,13 @@ export default function GuestList({ propertyId, onAddGuest }) {
             setSendingGuest(null);
           }}
           onSend={handleManualSend}
+        />
+      )}
+      {editingGuest && (
+        <GuestEditForm
+          guest={editingGuest}
+          onClose={() => setEditingGuest(null)}
+          onGuestUpdated={handleGuestUpdated}
         />
       )}
     </div>

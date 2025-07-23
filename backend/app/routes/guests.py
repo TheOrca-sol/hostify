@@ -40,9 +40,13 @@ def update_guest_route(guest_id):
         # Update guest
         success = update_guest(guest_id, guest_data)
         if success:
+            # Get the updated guest data to return
+            from ..utils.database import get_guest_by_id
+            updated_guest = get_guest_by_id(guest_id)
             return jsonify({
                 'success': True,
-                'message': 'Guest updated successfully'
+                'message': 'Guest updated successfully',
+                'guest': updated_guest
             })
         else:
             return jsonify({'success': False, 'error': 'Failed to update guest'}), 500
@@ -51,6 +55,30 @@ def update_guest_route(guest_id):
         return jsonify({
             'success': False,
             'error': f'Failed to update guest: {str(e)}'
+        }), 500
+
+@guests_bp.route('/guests/<guest_id>', methods=['GET'])
+@require_auth
+def get_guest_route(guest_id):
+    """
+    Get a specific guest's information
+    """
+    try:
+        from ..utils.database import get_guest_by_id
+        guest = get_guest_by_id(guest_id)
+        
+        if not guest:
+            return jsonify({'success': False, 'error': 'Guest not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'guest': guest
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get guest: {str(e)}'
         }), 500
 
 @guests_bp.route('/guests', methods=['GET'])

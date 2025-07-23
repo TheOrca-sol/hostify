@@ -286,6 +286,21 @@ export const api = {
   },
 
   // Guest Management
+  async getGuest(guestId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/guests/${guestId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting guest:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
   async updateGuest(guestId, guestData) {
     try {
       const token = await this.getAuthToken();
@@ -799,6 +814,46 @@ export const api = {
     } catch (error) {
       console.error('Error generating file token:', error);
       return { success: false, error: 'Failed to generate file token' };
+    }
+  },
+
+  async viewGuestDocument(guestId) {
+    try {
+      const tokenResponse = await this.generateFileToken();
+      if (!tokenResponse.success) {
+        throw new Error('Failed to generate file token');
+      }
+
+      const fileToken = tokenResponse.token;
+      
+      // Get the guest data to find the actual filename
+      const guestResponse = await this.getGuest(guestId);
+      if (!guestResponse.success || !guestResponse.guest.id_document_path) {
+        throw new Error('No document found for this guest');
+      }
+
+      // Extract filename from the stored path
+      const fullPath = guestResponse.guest.id_document_path;
+      const filename = fullPath.split('/').pop(); // Get the filename from the path
+      
+      const response = await fetch(`${API_BASE_URL}/uploads/${filename}?token=${fileToken}`, {
+        method: 'GET'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch document');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      
+      // Open document in new tab
+      window.open(url, '_blank');
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error viewing guest document:', error);
+      return { success: false, error: error.message };
     }
   },
 

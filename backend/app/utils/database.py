@@ -385,6 +385,23 @@ def get_guest_by_reservation(reservation_id):
         print(f"Database error: {str(e)}")
         return None
 
+def get_guest_by_id(guest_id):
+    """
+    Get a guest by their ID
+    """
+    try:
+        guest = (Guest.query
+                .filter_by(id=uuid.UUID(guest_id) if isinstance(guest_id, str) else guest_id)
+                .join(Reservation)
+                .join(Property)
+                .options(db.joinedload(Guest.reservation).joinedload(Reservation.property))
+                .first())
+        return guest.to_dict() if guest else None
+    
+    except Exception as e:
+        print(f"Database error: {str(e)}")
+        return None
+
 def update_guest(guest_id, guest_data):
     """
     Update an existing guest record using SQLAlchemy
