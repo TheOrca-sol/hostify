@@ -21,7 +21,7 @@ export default function MessageTemplateForm({ template, properties, templateType
     active: template?.active ?? true,
     // Automation fields
     trigger_event: template?.trigger_event || '',
-    trigger_offset_value: template?.trigger_offset_value || 1,
+    trigger_offset_value: template?.trigger_offset_value || 0,
     trigger_offset_unit: template?.trigger_offset_unit || 'days',
     trigger_direction: template?.trigger_direction || 'before',
   })
@@ -88,6 +88,25 @@ export default function MessageTemplateForm({ template, properties, templateType
       {/* Automation Rule Builder */}
       <div className="border-t pt-4">
         <h3 className="text-lg font-semibold mb-2">Automation Rule</h3>
+        
+        {/* Current Status Display */}
+        {template && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="text-sm text-blue-800">
+              <strong>Current Automation:</strong>
+              {formData.trigger_event ? (
+                <span className="ml-2 text-green-600">
+                  ✓ Active - Sends {formData.trigger_offset_value} {formData.trigger_offset_unit} {formData.trigger_direction} {formData.trigger_event.replace('_', ' ')}
+                </span>
+              ) : (
+                <span className="ml-2 text-gray-600">
+                  ⚠ Manual only - No automation configured
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+        
         <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
           <span>Send this message</span>
           <input
@@ -96,7 +115,7 @@ export default function MessageTemplateForm({ template, properties, templateType
             value={formData.trigger_offset_value}
             onChange={handleChange}
             className="w-20 border rounded-lg px-3 py-2"
-            min="1"
+            min="0"
           />
           <select
             name="trigger_offset_unit"
@@ -128,7 +147,12 @@ export default function MessageTemplateForm({ template, properties, templateType
             <option value="verification">Verification</option>
           </select>
         </div>
-        <p className="text-xs text-gray-500 mt-2">Leave the trigger blank to send this message manually.</p>
+        <p className="text-xs text-gray-500 mt-2">
+          {formData.trigger_event ? 
+            `This message will be sent automatically ${formData.trigger_offset_value} ${formData.trigger_offset_unit} ${formData.trigger_direction} ${formData.trigger_event.replace('_', ' ')}.` :
+            "Leave the trigger blank to send this message manually."
+          }
+        </p>
       </div>
 
       {/* Footer */}

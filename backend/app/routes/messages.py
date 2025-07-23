@@ -24,11 +24,14 @@ def after_request(response):
 
 # Handle OPTIONS requests for CORS
 @messages_bp.route('/templates', methods=['OPTIONS'])
-@messages_bp.route('/templates/<template_id>', methods=['OPTIONS'])
 @messages_bp.route('/scheduled', methods=['OPTIONS'])
 @messages_bp.route('/scheduled/<message_id>/send', methods=['OPTIONS'])
 @messages_bp.route('/scheduled/<message_id>/cancel', methods=['OPTIONS'])
 def handle_options():
+    return '', 200
+
+@messages_bp.route('/templates/<template_id>', methods=['OPTIONS'])
+def handle_template_options(template_id):
     return '', 200
 
 @messages_bp.route('/templates', methods=['GET'])
@@ -109,33 +112,61 @@ def create_template():
 @require_auth
 def update_template(template_id):
     """Update an existing message template"""
-    template = MessageTemplate.query.filter_by(
-        id=uuid.UUID(template_id),
-        user_id=g.user_id
-    ).first_or_404()
-    
-    data = request.get_json()
-    
-    # Update fields
-    for field in ['name', 'template_type', 'subject', 'content', 'language', 'channels', 'variables', 'active']:
-        if field in data:
-            setattr(template, field, data[field])
-    
-    db.session.commit()
-    return jsonify(template.to_dict())
+    try:
+        # Get user record
+        user = get_user_by_firebase_uid(g.user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        template = MessageTemplate.query.filter_by(
+            id=uuid.UUID(template_id),
+            user_id=user['id']
+        ).first()
+        
+        if not template:
+            return jsonify({'error': 'Template not found'}), 404
+        
+        data = request.get_json()
+        
+        # Update fields
+        for field in ['name', 'template_type', 'subject', 'content', 'language', 'channels', 'variables', 'active', 'trigger_event', 'trigger_offset_value', 'trigger_offset_unit', 'trigger_direction']:
+            if field in data:
+                setattr(template, field, data[field])
+        
+        db.session.commit()
+        return jsonify({'success': True, 'template': template.to_dict()})
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating template: {str(e)}")
+        return jsonify({'error': 'Failed to update template'}), 500
 
 @messages_bp.route('/templates/<template_id>', methods=['DELETE'])
 @require_auth
 def delete_template(template_id):
     """Delete a message template"""
-    template = MessageTemplate.query.filter_by(
-        id=uuid.UUID(template_id),
-        user_id=g.user_id
-    ).first_or_404()
-    
-    db.session.delete(template)
-    db.session.commit()
-    return '', 204
+    try:
+        # Get user record
+        user = get_user_by_firebase_uid(g.user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        template = MessageTemplate.query.filter_by(
+            id=uuid.UUID(template_id),
+            user_id=user['id']
+        ).first()
+        
+        if not template:
+            return jsonify({'error': 'Template not found'}), 404
+        
+        db.session.delete(template)
+        db.session.commit()
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting template: {str(e)}")
+        return jsonify({'error': 'Failed to delete template'}), 500
 
 @messages_bp.route('/scheduled', methods=['GET'])
 @require_auth
