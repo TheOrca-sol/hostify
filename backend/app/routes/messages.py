@@ -180,8 +180,12 @@ def get_scheduled_messages():
 
         reservation_id = request.args.get('reservation_id')
 
-        # Base query
-        query = ScheduledMessage.query.join(Reservation).join(Property).filter(Property.user_id == user['id'])
+        # Base query with eager loading
+        query = ScheduledMessage.query.join(Reservation).join(Property).options(
+            db.joinedload(ScheduledMessage.template),
+            db.joinedload(ScheduledMessage.guest),
+            db.joinedload(ScheduledMessage.reservation).joinedload(Reservation.property)
+        ).filter(Property.user_id == user['id'])
 
         # Filter by reservation if provided
         if reservation_id:

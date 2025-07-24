@@ -1,6 +1,6 @@
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 import time
 
@@ -42,10 +42,33 @@ def send_due_messages():
                 
                 # Populate template variables
                 content = message.template.content
-                content = content.replace('{{guest_name}}', message.guest.full_name or 'Guest')
-                content = content.replace('{{property_name}}', message.reservation.property.name)
-                content = content.replace('{{check_in_date}}', message.reservation.check_in.strftime('%Y-%m-%d'))
-                content = content.replace('{{check_out_date}}', message.reservation.check_out.strftime('%Y-%m-%d'))
+                
+                # Get related data
+                guest = message.guest
+                reservation = message.reservation
+                property = reservation.property if reservation else None
+                
+                # Build variables dict
+                variables = {
+                    'guest_name': guest.full_name if guest else 'Guest',
+                    'property_name': property.name if property else 'Property',
+                    'check_in_date': reservation.check_in.strftime('%B %d, %Y') if reservation and reservation.check_in else '',
+                    'check_out_date': reservation.check_out.strftime('%B %d, %Y') if reservation and reservation.check_out else '',
+                    'check_in_time': reservation.check_in.strftime('%I:%M %p') if reservation and reservation.check_in else '',
+                    'check_out_time': reservation.check_out.strftime('%I:%M %p') if reservation and reservation.check_out else '',
+                    'property_address': property.address if property else '',
+                    'host_name': property.owner.name if property and property.owner else 'Host',
+                    'host_phone': property.owner.phone if property and property.owner else '',
+                    'verification_link': f"https://hostify.app/verify/{guest.verification_token}" if guest and guest.verification_token else '',
+                    'verification_expiry': (datetime.now(timezone.utc) + timedelta(days=7)).strftime('%B %d, %Y at %H:%M UTC') if guest else '',
+                    'contract_link': f"https://hostify.app/contract/sign/{guest.verification_token}" if guest and guest.verification_token else '',
+                    'contract_expiry': (datetime.now(timezone.utc) + timedelta(days=7)).strftime('%B %d, %Y at %H:%M UTC') if guest else ''
+                }
+                
+                # Replace variables in content (handle both single and double braces)
+                for key, value in variables.items():
+                    content = content.replace('{' + key + '}', str(value))
+                    content = content.replace('{{' + key + '}}', str(value))
                 
                 # Send via SMS
                 if 'sms' in message.channels and message.guest.phone:
@@ -54,6 +77,7 @@ def send_due_messages():
                         message.status = 'sent'
                         message.sent_at = datetime.now(timezone.utc)
                         print(f"    -> Successfully sent SMS to {message.guest.phone}")
+                        print(f"    -> Content: {content[:100]}...")
                     else:
                         message.status = 'failed'
                         print(f"    -> Failed to send SMS: {result['error']}")

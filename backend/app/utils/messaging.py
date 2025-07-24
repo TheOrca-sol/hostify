@@ -63,6 +63,8 @@ class MessageService:
             'property_name': property.name if property else '',
             'check_in_date': reservation.check_in.strftime('%B %d, %Y') if reservation and reservation.check_in else '',
             'check_out_date': reservation.check_out.strftime('%B %d, %Y') if reservation and reservation.check_out else '',
+            'check_in_time': reservation.check_in.strftime('%I:%M %p') if reservation and reservation.check_in else '',
+            'check_out_time': reservation.check_out.strftime('%I:%M %p') if reservation and reservation.check_out else '',
             'property_address': property.address if property else '',
             'host_name': property.owner.name if property and property.owner else '',
             'host_phone': property.owner.phone if property and property.owner else '',

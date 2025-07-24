@@ -414,7 +414,11 @@ class ScheduledMessage(db.Model):
             'channels': self.channels,
             'sent_at': self.sent_at.isoformat() if self.sent_at else None,
             'delivery_status': self.delivery_status,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            # Include related data
+            'template': self.template.to_dict() if hasattr(self, 'template') and self.template else None,
+            'guest': self.guest.to_dict() if self.guest else None,
+            'reservation': self.reservation.to_dict() if self.reservation else None
         }
 
 class MessageLog(db.Model):

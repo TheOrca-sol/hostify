@@ -6,6 +6,8 @@ const VARIABLES = [
   { key: 'property_name', description: 'Property name' },
   { key: 'check_in_date', description: 'Check-in date' },
   { key: 'check_out_date', description: 'Check-out date' },
+  { key: 'check_in_time', description: 'Check-in time' },
+  { key: 'check_out_time', description: 'Check-out time' },
   { key: 'verification_link', description: 'Guest verification link' },
   { key: 'host_name', description: 'Property host name' },
 ]
