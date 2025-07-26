@@ -5,7 +5,8 @@ import PropertyList from '../components/PropertyList'
 import ReservationsList from '../components/ReservationsList'
 import GuestList from '../components/GuestList'
 import CommunicationCenter from '../components/CommunicationCenter'
-import { Home, Calendar, Users, Mail, BarChart } from 'lucide-react'
+import ContractList from '../components/ContractList'
+import { Home, Calendar, Users, Mail, BarChart, FileText } from 'lucide-react'
 
 export default function Dashboard() {
   const { userProfile } = useAuth()
@@ -58,7 +59,8 @@ export default function Dashboard() {
     { id: 'properties', name: 'Properties', icon: Home },
     { id: 'reservations', name: 'Reservations', icon: Calendar },
     { id: 'guests', name: 'Guests', icon: Users },
-    { id: 'communications', name: 'Communications', icon: Mail }
+    { id: 'communications', name: 'Communications', icon: Mail },
+    { id: 'contracts', name: 'Contracts', icon: FileText }
   ]
 
   if (loading) {
@@ -303,6 +305,10 @@ export default function Dashboard() {
 
           {activeTab === 'communications' && (
             <CommunicationCenter />
+          )}
+
+          {activeTab === 'contracts' && (
+            <ContractList />
           )}
         </div>
       </div>

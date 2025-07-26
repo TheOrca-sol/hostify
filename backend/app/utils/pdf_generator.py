@@ -1,184 +1,324 @@
-from reportlab.lib.pagesizes import A4
+"""
+PDF generation utilities for contracts and documents
+"""
+
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from reportlab.pdfgen import canvas
-from datetime import datetime
-import tempfile
 import os
+from datetime import datetime
+import uuid
+import base64
+import io
+from PIL import Image as PILImage
+from flask import current_app
 
-def generate_police_form(guest_data):
+def generate_contract_pdf(content, guest, contract):
     """
-    Generate a French police form (Fiche de Police) PDF
+    Generate a PDF contract document
+    
+    Args:
+        content (str): Populated contract content
+        guest: Guest object
+        contract: Contract object
+    
+    Returns:
+        str: Path to the generated PDF file
     """
     try:
-        # Create temporary file
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.pdf')
-        temp_path = temp_file.name
-        temp_file.close()
+        # Create contracts directory if it doesn't exist
+        contracts_dir = os.path.join(os.getcwd(), 'contracts')
+        os.makedirs(contracts_dir, exist_ok=True)
+        
+        # Generate unique filename
+        filename = f"contract_{contract.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        filepath = os.path.join(contracts_dir, filename)
         
         # Create PDF document
-        doc = SimpleDocTemplate(
-            temp_path,
-            pagesize=A4,
-            rightMargin=72,
-            leftMargin=72,
-            topMargin=72,
-            bottomMargin=18
-        )
+        doc = SimpleDocTemplate(filepath, pagesize=A4)
+        story = []
         
-        # Create styles
+        # Get styles
         styles = getSampleStyleSheet()
+        
+        # Create custom styles
         title_style = ParagraphStyle(
             'CustomTitle',
             parent=styles['Heading1'],
-            fontSize=18,
+            fontSize=16,
             spaceAfter=30,
             alignment=TA_CENTER,
-            fontName='Helvetica-Bold'
+            textColor=colors.darkblue
         )
         
-        subtitle_style = ParagraphStyle(
-            'CustomSubtitle',
+        header_style = ParagraphStyle(
+            'CustomHeader',
             parent=styles['Heading2'],
             fontSize=14,
             spaceAfter=20,
-            alignment=TA_CENTER,
-            fontName='Helvetica-Bold'
+            textColor=colors.darkblue
         )
         
         normal_style = ParagraphStyle(
             'CustomNormal',
             parent=styles['Normal'],
-            fontSize=12,
+            fontSize=11,
             spaceAfter=12,
-            alignment=TA_LEFT,
-            fontName='Helvetica'
+            alignment=TA_LEFT
         )
         
-        # Build PDF content
-        story = []
-        
-        # Header
-        story.append(Paragraph("ROYAUME DU MAROC", title_style))
-        story.append(Paragraph("FICHE DE POLICE", subtitle_style))
+        # Add title
+        story.append(Paragraph("RENTAL CONTRACT", title_style))
         story.append(Spacer(1, 20))
         
-        # Current date
-        current_date = datetime.now().strftime("%d/%m/%Y")
-        story.append(Paragraph(f"Date: {current_date}", normal_style))
-        story.append(Spacer(1, 20))
-        
-        # Guest information table
-        data = [
-            ['INFORMATIONS DE L\'INVITÉ', ''],
-            ['', ''],
-            ['Nom complet:', guest_data.get('full_name', '')],
-            ['Numéro CIN/Passeport:', guest_data.get('cin_or_passport', '')],
-            ['Date de naissance:', format_date(guest_data.get('birthdate', ''))],
-            ['Nationalité:', guest_data.get('nationality', '')],
-            ['Type de document:', guest_data.get('document_type', '')],
-            ['Adresse:', guest_data.get('address', '')],
-            ['', ''],
-            ['Date d\'arrivée:', current_date],
-            ['Statut:', 'Invité'],
+        # Add contract details table
+        contract_data = [
+            ['Guest Name:', guest.full_name or 'N/A'],
+            ['Property:', guest.reservation.property.name if guest.reservation and guest.reservation.property else 'N/A'],
+            ['Check-in Date:', guest.reservation.check_in.strftime('%B %d, %Y') if guest.reservation and guest.reservation.check_in else 'N/A'],
+            ['Check-out Date:', guest.reservation.check_out.strftime('%B %d, %Y') if guest.reservation and guest.reservation.check_out else 'N/A'],
+            ['Contract Date:', datetime.now().strftime('%B %d, %Y')],
+            ['Contract ID:', str(contract.id)]
         ]
         
-        # Create table
-        table = Table(data, colWidths=[3*inch, 4*inch])
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        contract_table = Table(contract_data, colWidths=[2*inch, 4*inch])
+        contract_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 14),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 12),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 6),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
         ]))
         
-        story.append(table)
+        story.append(contract_table)
         story.append(Spacer(1, 30))
         
-        # Footer information
-        story.append(Paragraph("DÉCLARATION", subtitle_style))
-        story.append(Spacer(1, 10))
+        # Add contract content
+        story.append(Paragraph("CONTRACT TERMS", header_style))
+        story.append(Spacer(1, 15))
         
-        declaration_text = """
-        Je soussigné(e), propriétaire/gérant de l'établissement d'hébergement, déclare sur l'honneur 
-        que les informations ci-dessus sont exactes et complètes. L'invité mentionné ci-dessus séjourne 
-        dans mon établissement aux dates indiquées.
-        """
+        # Split content into paragraphs and add them
+        paragraphs = content.split('\n\n')
+        for para in paragraphs:
+            if para.strip():
+                # Convert line breaks to HTML breaks for ReportLab
+                para_html = para.replace('\n', '<br/>')
+                story.append(Paragraph(para_html, normal_style))
+                story.append(Spacer(1, 10))
         
-        story.append(Paragraph(declaration_text, normal_style))
+        # Add signature section
         story.append(Spacer(1, 30))
+        story.append(Paragraph("SIGNATURES", header_style))
+        story.append(Spacer(1, 20))
         
-        # Signature section
+        # Signature table
         signature_data = [
-            ['Signature de l\'hôte:', 'Signature de l\'invité:'],
-            ['', ''],
-            ['', ''],
-            ['Date:', 'Date:'],
-            [current_date, current_date],
+            ['Host Signature:', '_________________'],
+            ['Guest Signature:', '_________________'],
+            ['Date:', datetime.now().strftime('%B %d, %Y')]
         ]
         
-        signature_table = Table(signature_data, colWidths=[3.5*inch, 3.5*inch])
+        signature_table = Table(signature_data, colWidths=[2*inch, 4*inch])
         signature_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
             ('FONTSIZE', (0, 0), (-1, -1), 12),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('BOTTOMPADDING', (0, 1), (-1, 2), 30),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 20),
+            ('LINEBELOW', (1, 0), (1, 1), 1, colors.black)
         ]))
         
         story.append(signature_table)
-        story.append(Spacer(1, 20))
-        
-        # Footer
-        footer_text = """
-        Cette fiche doit être conservée par l'établissement d'hébergement et présentée 
-        aux autorités compétentes sur demande.
-        """
-        
-        footer_style = ParagraphStyle(
-            'Footer',
-            parent=styles['Normal'],
-            fontSize=10,
-            alignment=TA_CENTER,
-            textColor=colors.grey,
-            fontName='Helvetica-Oblique'
-        )
-        
-        story.append(Paragraph(footer_text, footer_style))
         
         # Build PDF
         doc.build(story)
         
-        return temp_path
-    
-    except Exception as e:
-        raise Exception(f"PDF generation failed: {str(e)}")
-
-def format_date(date_str):
-    """
-    Format date string for display
-    """
-    try:
-        if not date_str:
-            return ''
+        return filepath
         
-        # Parse ISO format date
-        date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-        return date_obj.strftime("%d/%m/%Y")
+    except Exception as e:
+        current_app.logger.error(f"Error generating contract PDF: {e}", exc_info=True)
+        raise
+
+def generate_signed_contract_pdf(content, guest, contract, signature_data):
+    """
+    Generate a signed contract PDF with digital signature
     
-    except (ValueError, AttributeError):
-        return date_str 
+    Args:
+        content (str): Populated contract content
+        guest: Guest object
+        contract: Contract object
+        signature_data (dict): Signature information
+    
+    Returns:
+        str: Path to the generated signed PDF file
+    """
+    contracts_dir = os.path.join(os.getcwd(), 'contracts')
+    os.makedirs(contracts_dir, exist_ok=True)
+    
+    filename = f"signed_contract_{contract.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+    filepath = os.path.join(contracts_dir, filename)
+    
+    temp_signature_path = None
+    
+    try:
+        # Create PDF document
+        doc = SimpleDocTemplate(filepath, pagesize=A4)
+        story = []
+        
+        # Get styles
+        styles = getSampleStyleSheet()
+        
+        # Create custom styles
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=16,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.darkgreen
+        )
+        
+        header_style = ParagraphStyle(
+            'CustomHeader',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=20,
+            textColor=colors.darkgreen
+        )
+        
+        normal_style = ParagraphStyle(
+            'CustomNormal',
+            parent=styles['Normal'],
+            fontSize=11,
+            spaceAfter=12,
+            alignment=TA_LEFT
+        )
+        
+        # Add title with "SIGNED" indicator
+        story.append(Paragraph("SIGNED RENTAL CONTRACT", title_style))
+        story.append(Spacer(1, 20))
+        
+        # Add contract details table
+        contract_data = [
+            ['Guest Name:', guest.full_name or 'N/A'],
+            ['Property:', guest.reservation.property.name if guest.reservation and guest.reservation.property else 'N/A'],
+            ['Check-in Date:', guest.reservation.check_in.strftime('%B %d, %Y') if guest.reservation and guest.reservation.check_in else 'N/A'],
+            ['Check-out Date:', guest.reservation.check_out.strftime('%B %d, %Y') if guest.reservation and guest.reservation.check_out else 'N/A'],
+            ['Signed Date:', contract.signed_at.strftime('%B %d, %Y at %H:%M') if contract.signed_at else 'N/A'],
+            ['Contract ID:', str(contract.id)]
+        ]
+        
+        contract_table = Table(contract_data, colWidths=[2*inch, 4*inch])
+        contract_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgreen),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(contract_table)
+        story.append(Spacer(1, 30))
+        
+        # Add contract content
+        story.append(Paragraph("CONTRACT TERMS", header_style))
+        story.append(Spacer(1, 15))
+        
+        # Split content into paragraphs and add them
+        paragraphs = content.split('\n\n')
+        for para in paragraphs:
+            if para.strip():
+                # Convert line breaks to HTML breaks for ReportLab
+                para_html = para.replace('\n', '<br/>')
+                story.append(Paragraph(para_html, normal_style))
+                story.append(Spacer(1, 10))
+        
+        # Add signature section with digital signature info
+        story.append(Spacer(1, 30))
+        story.append(Paragraph("DIGITAL SIGNATURES", header_style))
+        story.append(Spacer(1, 20))
+        
+        # Add actual signature image if available
+        if signature_data and signature_data.get('signature'):
+            try:
+                # Extract base64 data from data URL
+                signature_b64 = signature_data['signature']
+                if signature_b64.startswith('data:image/'):
+                    # Remove data URL prefix
+                    signature_b64 = signature_b64.split(',')[1]
+                
+                # Decode base64 to image
+                signature_bytes = base64.b64decode(signature_b64)
+                signature_image = PILImage.open(io.BytesIO(signature_bytes))
+                
+                # Save temporary image file with unique name to avoid conflicts
+                temp_signature_path = os.path.join(contracts_dir, f"temp_signature_{contract.id}_{uuid.uuid4()}.png")
+                signature_image.save(temp_signature_path)
+                
+                # Add signature image to PDF
+                story.append(Paragraph("Guest Signature:", normal_style))
+                story.append(Spacer(1, 10))
+                
+                # Create ReportLab image with appropriate size
+                img = Image(temp_signature_path, width=3*inch, height=1.5*inch)
+                story.append(img)
+                story.append(Spacer(1, 20))
+                
+            except Exception as sig_error:
+                current_app.logger.error(f"Error processing signature image: {sig_error}", exc_info=True)
+                # Fall back to text representation
+                story.append(Paragraph("Guest Signature: [Digital signature applied]", normal_style))
+                story.append(Spacer(1, 10))
+        else:
+            story.append(Paragraph("Guest Signature: [Digital signature applied]", normal_style))
+            story.append(Spacer(1, 10))
+        
+        # Signature table with digital signature details
+        signature_data_table = [
+            ['Guest Name:', guest.full_name or 'N/A'],
+            ['Signed Date:', contract.signed_at.strftime('%B %d, %Y at %H:%M') if contract.signed_at else 'N/A'],
+            ['Signature IP:', contract.signature_ip or 'N/A'],
+            ['Contract Status:', 'SIGNED'],
+            ['Digital Signature ID:', str(uuid.uuid4())]
+        ]
+        
+        signature_table = Table(signature_data_table, colWidths=[2*inch, 4*inch])
+        signature_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgreen),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(signature_table)
+        
+        # Build PDF
+        doc.build(story)
+        
+        return filepath
+        
+    except Exception as e:
+        current_app.logger.error(f"Error generating signed contract PDF: {e}", exc_info=True)
+        if os.path.exists(filepath):
+            try:
+                os.remove(filepath)
+            except Exception as cleanup_error:
+                current_app.logger.error(f"Error cleaning up failed PDF file: {cleanup_error}", exc_info=True)
+        raise
+        
+    finally:
+        # Always clean up temporary signature file
+        if temp_signature_path and os.path.exists(temp_signature_path):
+            try:
+                os.remove(temp_signature_path)
+            except Exception as cleanup_error:
+                current_app.logger.error(f"Error cleaning up temporary signature file: {cleanup_error}", exc_info=True)

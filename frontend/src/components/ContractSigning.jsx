@@ -1,28 +1,39 @@
 import React, { useState, useRef, useEffect } from 'react'
 import SignaturePad from 'react-signature-canvas'
 import { api } from '../services/api'
-import { useParams } from 'react-router-dom'
-import { FileDown, RefreshCw } from 'lucide-react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { FileDown, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react'
 
 export default function ContractSigning({ mode = 'sign' }) {
-  const { contractId } = useParams()
+  const { contractId, token } = useParams()
+  const navigate = useNavigate()
   const [contract, setContract] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [isSigning, setIsSigning] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
   const [loadingContract, setLoadingContract] = useState(true)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const signaturePadRef = useRef()
 
   useEffect(() => {
     loadContract()
-  }, [contractId])
+  }, [contractId, token])
 
   const loadContract = async () => {
     try {
       setLoadingContract(true)
       setError('')
-      const response = await api.getContract(contractId)
+      setSuccessMessage('')
+      
+      const response = token 
+        ? await api.getContractByToken(token)
+        : await api.getContract(contractId)
+      
       if (response.success) {
         setContract(response.contract)
+        if (response.contract.status === 'signed') {
+          setSuccessMessage('This contract has already been signed.')
+        }
       } else {
         throw new Error(response.error || 'Failed to load contract')
       }
@@ -40,54 +51,69 @@ export default function ContractSigning({ mode = 'sign' }) {
   }
 
   const handleDownload = async () => {
+    if (!contractId) return
+    
     try {
-      setLoading(true)
+      setIsDownloading(true)
+      setError('')
       const response = await api.downloadContract(contractId)
+      
       if (response.success) {
-        // Create a download link
         const link = document.createElement('a')
         link.href = response.url
-        link.download = `contract-${contractId}.pdf`
+        link.download = `contract-${contract.id}.pdf`
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
+        URL.revokeObjectURL(response.url) // Clean up
       } else {
         throw new Error(response.error || 'Failed to download contract')
       }
     } catch (err) {
       setError(err.message)
     } finally {
-      setLoading(false)
+      setIsDownloading(false)
     }
   }
   
   const handleSign = async () => {
     try {
       if (!signaturePadRef.current || signaturePadRef.current.isEmpty()) {
-        throw new Error('Please provide your signature')
+        setError('Please provide your signature before signing.')
+        return
       }
       
       setError('')
-      setLoading(true)
+      setSuccessMessage('')
+      setIsSigning(true)
       
-      // Get signature data
       const signatureData = {
-        signature: signaturePadRef.current.toDataURL(),
-        timestamp: new Date().toISOString()
+        signature_data: {
+          signature: signaturePadRef.current.toDataURL('image/png'),
+          timestamp: new Date().toISOString()
+        }
       }
       
-      // Sign contract
-      const result = await api.signContract(contractId, signatureData)
+      const result = token
+        ? await api.signContractByToken(token, signatureData)
+        : await api.signContract(contractId, signatureData.signature_data)
       
       if (result.success) {
-        setContract(result.contract)
+        setSuccessMessage('Contract signed successfully! You will be redirected shortly.')
+        setTimeout(() => {
+          if (token) {
+            navigate('/contract-signed-success')
+          } else {
+            loadContract() // Reload contract for host view
+          }
+        }, 3000)
       } else {
         throw new Error(result.error || 'Failed to sign contract')
       }
     } catch (err) {
       setError(err.message)
     } finally {
-      setLoading(false)
+      setIsSigning(false)
     }
   }
 
@@ -99,132 +125,149 @@ export default function ContractSigning({ mode = 'sign' }) {
     )
   }
 
-  if (!contract) {
+  if (error) {
     return (
-      <div className="text-center py-12">
-        <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-red-500 mr-3" />
+            <div>
+              <h2 className="text-lg font-semibold text-red-800 mb-1">Error Loading Contract</h2>
+              <p className="text-red-700">{error}</p>
+            </div>
+          </div>
         </div>
-        <h3 className="text-lg font-medium text-gray-900">Contract Not Found</h3>
-        <p className="mt-2 text-sm text-gray-500">{error || 'The requested contract could not be found.'}</p>
       </div>
     )
   }
-  
+
+  if (!contract) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-yellow-500 mr-3" />
+            <div>
+              <h2 className="text-lg font-semibold text-yellow-800 mb-1">Contract Not Found</h2>
+              <p className="text-yellow-700">The contract you're looking for could not be found or may have expired.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6">
-      {error && (
-        <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm">
-          {error}
-        </div>
-      )}
-
-      {/* Contract Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">
-            {contract.property_name} - Rental Contract
-          </h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Guest: {contract.guest_name} • Generated: {new Date(contract.created_at).toLocaleDateString()}
-          </p>
+    <div className="max-w-4xl mx-auto p-6">
+      <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+        {/* Header */}
+        <div className="bg-gray-50 px-6 py-4 border-b">
+          <h1 className="text-2xl font-bold text-gray-900">Rental Contract</h1>
+          <div className="mt-2 flex flex-wrap gap-4 text-sm text-gray-600">
+            <span>Guest: {contract.guest_name}</span>
+            <span>Property: {contract.property_name}</span>
+            <span>Check-in: {contract.check_in_date}</span>
+            <span>Check-out: {contract.check_out_date}</span>
+          </div>
         </div>
 
-        {mode === 'view' && (
-          <button
-            onClick={handleDownload}
-            disabled={loading}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-          >
-            <FileDown className="-ml-1 mr-2 h-4 w-4" />
-            Download PDF
-          </button>
+        {/* Success Message */}
+        {successMessage && (
+          <div className="p-4 bg-green-50 border-b border-green-200">
+            <div className="flex items-center">
+              <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+              <p className="text-sm font-medium text-green-800">{successMessage}</p>
+            </div>
+          </div>
         )}
-      </div>
-      
-      {/* Contract Preview */}
-      <div className="border border-gray-200 rounded-lg p-4">
-        <iframe
-          src={`/api/contracts/${contractId}/preview`}
-          className="w-full h-96 border-0"
-          title="Contract Preview"
-        />
-      </div>
-      
-      {/* Signature Area - Only show in sign mode and if not already signed */}
-      {mode === 'sign' && !contract.signed_at && (
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900">
-            Sign Contract
-          </h3>
-          
-          <div className="border border-gray-300 rounded-lg">
-            <SignaturePad
-              ref={signaturePadRef}
-              canvasProps={{
-                className: 'w-full h-48'
-              }}
+
+        {/* Contract Content */}
+        <div className="p-6">
+          <div className="prose max-w-none">
+            <div 
+              className="whitespace-pre-wrap text-gray-800 leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: contract.content.replace(/\n/g, '<br/>') }}
             />
           </div>
-          
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={handleClear}
-              className="px-4 py-2 text-sm text-gray-700 hover:text-gray-900"
-            >
-              Clear Signature
-            </button>
-            
-            <button
-              type="button"
-              onClick={handleSign}
-              disabled={loading}
-              className={`px-4 py-2 rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 ${
-                loading ? 'opacity-75 cursor-not-allowed' : ''
-              }`}
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                  Signing...
-                </>
-              ) : (
-                'Sign Contract'
-              )}
-            </button>
-          </div>
-
-          {/* Terms */}
-          <div className="text-sm text-gray-500">
-            By signing this contract, you agree to all terms and conditions stated in the document above.
-            This signature will be legally binding.
-          </div>
         </div>
-      )}
 
-      {/* Show signature info if contract is signed */}
-      {contract.signed_at && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-green-800">
-                Contract Signed
-              </h3>
-              <div className="mt-2 text-sm text-green-700">
-                <p>Signed by {contract.guest_name} on {new Date(contract.signed_at).toLocaleString()}</p>
+        {/* Signature Section */}
+        {mode === 'sign' && contract.status !== 'signed' && (
+          <div className="border-t bg-gray-50 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Digital Signature</h3>
+            
+            <div className="bg-white border rounded-lg p-4">
+              <SignaturePad
+                ref={signaturePadRef}
+                canvasProps={{
+                  className: 'w-full h-48 border border-gray-300 rounded'
+                }}
+              />
+              
+              <div className="mt-4 flex items-center space-x-4">
+                <button
+                  onClick={handleClear}
+                  type="button"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                >
+                  Clear Signature
+                </button>
+                
+                <button
+                  onClick={handleSign}
+                  disabled={isSigning}
+                  type="button"
+                  className="px-6 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  {isSigning ? (
+                    <>
+                      <RefreshCw className="animate-spin -ml-1 mr-2 h-4 w-4 inline" />
+                      Signing...
+                    </>
+                  ) : (
+                    'Sign Contract'
+                  )}
+                </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Download Section */}
+        {contract.status === 'signed' && (
+          <div className="border-t bg-green-50 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-green-800">Contract Signed Successfully!</h3>
+                <p className="text-green-700 mt-1">Your contract has been signed and is ready for download.</p>
+              </div>
+              
+              <button
+                onClick={handleDownload}
+                disabled={isDownloading}
+                type="button"
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              >
+                <FileDown className="w-4 h-4 mr-2" />
+                {isDownloading ? 'Downloading...' : 'Download PDF'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Error Display */}
+        {error && !successMessage && (
+          <div className="border-t bg-red-50 p-6">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-red-500 mr-3" />
+              <div className="text-red-800">
+                <h3 className="font-semibold">Error</h3>
+                <p>{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
-} 
+}

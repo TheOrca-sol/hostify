@@ -570,7 +570,7 @@ export const api = {
   async generateContractAndScheduleSms(guestId) {
     try {
       const token = await this.getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/contract/generate-and-schedule-sms/${guestId}`, {
+      const response = await fetch(`${API_BASE_URL}/contracts/generate-and-schedule-sms/${guestId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -619,7 +619,7 @@ export const api = {
   async downloadContract(contractId) {
     try {
       const token = await this.getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/contracts/${contractId}/download`, {
+      const response = await fetch(`${API_BASE_URL}/contracts/download/${contractId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -637,6 +637,28 @@ export const api = {
       };
     } catch (error) {
       console.error('Error downloading contract:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async regenerateContractPdf(contractId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/contracts/regenerate-pdf/${contractId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to regenerate PDF');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error regenerating contract PDF:', error);
       return { success: false, error: error.message };
     }
   },
@@ -917,6 +939,26 @@ export const api = {
       return await response.json();
     } catch (error) {
       console.error('Error cancelling scheduled message:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Contract Management
+  async getContracts() {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/contracts`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch contracts');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting contracts:', error);
       return { success: false, error: error.message };
     }
   }

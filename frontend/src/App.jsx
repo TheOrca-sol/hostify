@@ -39,6 +39,7 @@ function App() {
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
             <Route path="/verify/:token" element={<GuestVerification />} />
+            <Route path="/contract/sign/:token" element={<ContractSigning mode="sign" />} />
             
             {/* Protected Routes */}
             <Route path="/" element={
