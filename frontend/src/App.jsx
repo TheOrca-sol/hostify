@@ -13,8 +13,8 @@ import ContractSigning from './components/ContractSigning'
 import InvitationAcceptance from './pages/InvitationAcceptance'
 
 // Protected route wrapper
-const ProtectedRoute = ({ children }) => {
-  const { user, loading } = useAuth()
+const ProtectedRoute = ({ children, allowProfileSetup = false }) => {
+  const { user, loading, needsProfileSetup } = useAuth()
   
   if (loading) {
     return (
@@ -26,6 +26,11 @@ const ProtectedRoute = ({ children }) => {
   
   if (!user) {
     return <Navigate to="/login" />
+  }
+  
+  // If user needs profile setup and we're not on the profile setup page
+  if (needsProfileSetup && !allowProfileSetup) {
+    return <Navigate to="/profile-setup" />
   }
   
   return children
@@ -52,13 +57,13 @@ function App() {
             } />
             
             <Route path="/profile/setup" element={
-              <ProtectedRoute>
+              <ProtectedRoute allowProfileSetup={true}>
                 <ProfileSetup />
               </ProtectedRoute>
             } />
             
             <Route path="/profile-setup" element={
-              <ProtectedRoute>
+              <ProtectedRoute allowProfileSetup={true}>
                 <ProfileSetup />
               </ProtectedRoute>
             } />
