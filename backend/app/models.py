@@ -471,4 +471,81 @@ class SyncLog(db.Model):
             'errors': self.errors,
             'started_at': self.started_at.isoformat() if self.started_at else None,
             'completed_at': self.completed_at.isoformat() if self.completed_at else None
+        }
+
+class PropertyTeamMember(db.Model):
+    """Team members assigned to properties"""
+    __tablename__ = 'property_team_members'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    property_id = db.Column(UUID(as_uuid=True), db.ForeignKey('properties.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
+    role = db.Column(db.Text, nullable=False)  # 'cohost', 'cleaner', 'maintenance', 'assistant', 'agency'
+    permissions = db.Column(JSON, nullable=True)  # Custom permissions for this property
+    invited_by_user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
+    invited_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    accepted_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    is_active = db.Column(db.Boolean, server_default=text('true'))
+    created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    
+    # Relationships
+    property = db.relationship('Property', backref='team_members')
+    user = db.relationship('User', foreign_keys=[user_id], backref='team_memberships')
+    invited_by = db.relationship('User', foreign_keys=[invited_by_user_id])
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'property_id': str(self.property_id),
+            'user_id': str(self.user_id),
+            'role': self.role,
+            'permissions': self.permissions,
+            'invited_by_user_id': str(self.invited_by_user_id),
+            'invited_at': self.invited_at.isoformat() if self.invited_at else None,
+            'accepted_at': self.accepted_at.isoformat() if self.accepted_at else None,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            # Include related data
+            'user_name': self.user.name if self.user else None,
+            'user_email': self.user.email if self.user else None,
+            'property_name': self.property.name if self.property else None,
+            'invited_by_name': self.invited_by.name if self.invited_by else None
+        }
+
+class TeamInvitation(db.Model):
+    """Invitations sent to join property teams"""
+    __tablename__ = 'team_invitations'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    property_id = db.Column(UUID(as_uuid=True), db.ForeignKey('properties.id', ondelete='CASCADE'), nullable=False)
+    inviter_user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
+    invited_email = db.Column(db.Text, nullable=False)
+    role = db.Column(db.Text, nullable=False)
+    permissions = db.Column(JSON, nullable=True)
+    invitation_token = db.Column(db.Text, unique=True, nullable=False)
+    status = db.Column(db.Text, server_default=text("'pending'"))  # 'pending', 'accepted', 'expired', 'revoked'
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    accepted_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    
+    # Relationships
+    property = db.relationship('Property', backref='team_invitations')
+    inviter = db.relationship('User', backref='sent_invitations')
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'property_id': str(self.property_id),
+            'inviter_user_id': str(self.inviter_user_id),
+            'invited_email': self.invited_email,
+            'role': self.role,
+            'permissions': self.permissions,
+            'invitation_token': self.invitation_token,
+            'status': self.status,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+            'accepted_at': self.accepted_at.isoformat() if self.accepted_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            # Include related data
+            'property_name': self.property.name if self.property else None,
+            'inviter_name': self.inviter.name if self.inviter else None
         } 

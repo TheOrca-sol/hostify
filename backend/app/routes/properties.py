@@ -4,11 +4,12 @@ Property management routes for Hostify Property Management Platform
 
 from flask import Blueprint, request, jsonify, g
 from ..utils.database import (
-    create_property, get_user_properties, get_property, update_property,
+    create_property, get_property, update_property,
     get_property_reservations, get_user_by_firebase_uid, create_user,
     delete_property, get_property_by_ical_url
 )
 from ..utils.auth import require_auth, get_current_user_id
+from ..utils.team_management import get_user_properties, check_user_property_permission
 from datetime import datetime
 import logging
 
@@ -92,9 +93,18 @@ def get_properties():
             logger.error(f"Failed to get/create user for firebase_uid: {g.user_id}")
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
-        # Get properties from database
-        properties = get_user_properties(user['id'])
-        logger.debug(f"Found {len(properties)} properties for user {user['id']}")
+        # Get all properties (owned + assigned) using new team management system
+        user_properties_data = get_user_properties(user['id'])
+        logger.debug(f"Found {len(user_properties_data)} properties for user {user['id']}")
+        
+        # Format the response to include relationship info
+        properties = []
+        for prop_data in user_properties_data:
+            property_dict = prop_data['property'].to_dict()
+            property_dict['relationship_type'] = prop_data['relationship_type']
+            property_dict['role'] = prop_data['role']
+            property_dict['permissions'] = prop_data['permissions']
+            properties.append(property_dict)
         
         return jsonify({
             'success': True,

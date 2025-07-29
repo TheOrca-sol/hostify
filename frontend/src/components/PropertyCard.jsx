@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { api } from '../services/api'
 import { Link } from 'react-router-dom'
-import { FileText, RefreshCw, Trash2, AlertTriangle, MessageSquare } from 'lucide-react'
+import { FileText, RefreshCw, Trash2, AlertTriangle, MessageSquare, Users, Crown } from 'lucide-react'
 import { toast } from '../components/Toaster'
 
 export default function PropertyCard({ property, onPropertyUpdated, onPropertyDeleted, onSyncComplete }) {
@@ -83,7 +83,23 @@ export default function PropertyCard({ property, onPropertyUpdated, onPropertyDe
         <div className="px-6 py-4">
           <div className="flex justify-between items-start">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">{property.name}</h3>
+              <div className="flex items-center space-x-3">
+                <h3 className="text-lg font-semibold text-gray-900">{property.name}</h3>
+                {/* Role Badge */}
+                <div className="flex items-center space-x-1">
+                  {property.relationship_type === 'owner' ? (
+                    <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <Crown className="w-3 h-3 mr-1" />
+                      Owner
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <Users className="w-3 h-3 mr-1" />
+                      {property.role.charAt(0).toUpperCase() + property.role.slice(1)}
+                    </div>
+                  )}
+                </div>
+              </div>
               {property.address && (
                 <p className="mt-1 text-sm text-gray-500">{property.address}</p>
               )}

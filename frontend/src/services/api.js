@@ -961,6 +961,133 @@ export const api = {
       console.error('Error getting contracts:', error);
       return { success: false, error: error.message };
     }
+  },
+
+  // Team Management
+  async inviteTeamMember(propertyId, memberData) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/team/invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(memberData)
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send invitation');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error inviting team member:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getTeamMembers(propertyId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/team`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch team members');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting team members:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async removeTeamMember(propertyId, memberUserId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/team/${memberUserId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to remove team member');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error removing team member:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async acceptInvitation(invitationToken) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/team/invitations/accept/${invitationToken}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to accept invitation');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error accepting invitation:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getInvitationDetails(invitationToken) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/team/invitations/${invitationToken}`);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch invitation details');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting invitation details:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getMyInvitations() {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/team/my-invitations`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch invitations');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting my invitations:', error);
+      return { success: false, error: error.message };
+    }
   }
 };
 
