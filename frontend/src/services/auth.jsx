@@ -5,6 +5,10 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
   OAuthProvider,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  updateProfile,
   signOut,
   onAuthStateChanged
 } from 'firebase/auth'
@@ -82,6 +86,45 @@ export function AuthProvider({ children }) {
       return result.user
     } catch (error) {
       console.error('Microsoft sign in error:', error)
+      throw error
+    }
+  }
+
+  // Sign up with email and password
+  const signUpWithEmail = async (email, password, displayName) => {
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email, password)
+      
+      // Update display name if provided
+      if (displayName && result.user) {
+        await updateProfile(result.user, { displayName })
+      }
+      
+      return result.user
+    } catch (error) {
+      console.error('Email signup error:', error)
+      throw error
+    }
+  }
+
+  // Sign in with email and password
+  const signInWithEmail = async (email, password) => {
+    try {
+      const result = await signInWithEmailAndPassword(auth, email, password)
+      return result.user
+    } catch (error) {
+      console.error('Email sign in error:', error)
+      throw error
+    }
+  }
+
+  // Reset password
+  const resetPassword = async (email) => {
+    try {
+      await sendPasswordResetEmail(auth, email)
+      return { success: true }
+    } catch (error) {
+      console.error('Password reset error:', error)
       throw error
     }
   }
@@ -224,6 +267,9 @@ export function AuthProvider({ children }) {
     signInWithGoogle,
     signInWithApple,
     signInWithMicrosoft,
+    signUpWithEmail,
+    signInWithEmail,
+    resetPassword,
     logout,
     getIdToken,
     

@@ -45,7 +45,7 @@ export default function TeamManagement() {
   const [roleFilter, setRoleFilter] = useState('all')
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [inviteForm, setInviteForm] = useState({
-    propertyId: '',
+    propertyId: 'all',
     email: '',
     role: 'cohost'
   })
@@ -128,26 +128,75 @@ export default function TeamManagement() {
 
     try {
       setInviting(true)
-      const result = await api.inviteTeamMember(inviteForm.propertyId, {
-        email: inviteForm.email,
-        role: inviteForm.role
-      })
-
-      if (result.success) {
-        toast.success(`Invitation sent to ${inviteForm.email}`)
-        setInviteForm({ propertyId: '', email: '', role: 'cohost' })
-        setShowInviteModal(false)
+      
+      if (inviteForm.propertyId === 'all') {
+        // Invite to all properties owned by the user
+        const ownedProperties = properties.filter(p => p.relationship_type === 'owner')
         
-        // Refresh team data
-        if (selectedProperty !== 'all') {
-          loadTeamMembers(selectedProperty)
+        if (ownedProperties.length === 0) {
+          toast.error('No properties found to invite to')
+          return
+        }
+
+        let successCount = 0
+        let errors = []
+
+        // Send invitations to all properties
+        for (const property of ownedProperties) {
+          try {
+            const result = await api.inviteTeamMember(property.id, {
+              email: inviteForm.email,
+              role: inviteForm.role
+            })
+            
+            if (result.success) {
+              successCount++
+            } else {
+              errors.push(`${property.name}: ${result.error}`)
+            }
+          } catch (error) {
+            errors.push(`${property.name}: Failed to send invitation`)
+          }
+        }
+
+        if (successCount === ownedProperties.length) {
+          toast.success(`✅ ${inviteForm.email} invited to all ${successCount} properties`)
+        } else if (successCount > 0) {
+          toast.success(`✅ ${inviteForm.email} invited to ${successCount}/${ownedProperties.length} properties`)
+          if (errors.length > 0) {
+            console.warn('Some invitations failed:', errors)
+          }
         } else {
-          loadAllTeamMembers()
+          toast.error('Failed to send invitations to any properties')
         }
       } else {
-        toast.error(result.error || 'Failed to send invitation')
+        // Invite to specific property
+        const result = await api.inviteTeamMember(inviteForm.propertyId, {
+          email: inviteForm.email,
+          role: inviteForm.role
+        })
+
+        if (result.success) {
+          toast.success(`✅ Invitation sent to ${inviteForm.email}`)
+        } else {
+          toast.error(result.error || 'Failed to send invitation')
+          return
+        }
       }
+
+      // Reset form and close modal
+      setInviteForm({ propertyId: 'all', email: '', role: 'cohost' })
+      setShowInviteModal(false)
+      
+      // Refresh team data
+      if (selectedProperty !== 'all') {
+        loadTeamMembers(selectedProperty)
+      } else {
+        loadAllTeamMembers()
+      }
+      
     } catch (error) {
+      console.error('Error inviting team member:', error)
       toast.error('Failed to send invitation')
     } finally {
       setInviting(false)
@@ -436,13 +485,30 @@ export default function TeamManagement() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
-                    <option value="">Select a property</option>
+                    <option value="all">🏠 All Properties (Recommended for Co-hosts & Agencies)</option>
+                    <option value="" disabled>--- Specific Properties ---</option>
                     {properties.map(property => (
                       <option key={property.id} value={property.id}>
                         {property.name}
                       </option>
                     ))}
                   </select>
+                  
+                  {inviteForm.propertyId === 'all' && (
+                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                      <div className="flex items-start space-x-2">
+                        <div className="text-blue-600 mt-0.5">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="text-sm text-blue-800">
+                          <p className="font-medium">This will invite the team member to all {properties.filter(p => p.relationship_type === 'owner').length} of your properties.</p>
+                          <p className="mt-1 text-blue-700">Perfect for co-hosts and agencies who help manage your entire portfolio.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -492,10 +558,16 @@ export default function TeamManagement() {
                     {inviting ? (
                       <>
                         <Mail className="animate-spin w-4 h-4 mr-2" />
-                        Sending...
+                        {inviteForm.propertyId === 'all' ? 'Sending to All Properties...' : 'Sending...'}
                       </>
                     ) : (
-                      'Send Invitation'
+                      <>
+                        <Mail className="w-4 h-4 mr-2" />
+                        {inviteForm.propertyId === 'all' 
+                          ? `Invite to All ${properties.filter(p => p.relationship_type === 'owner').length} Properties`
+                          : 'Send Invitation'
+                        }
+                      </>
                     )}
                   </button>
                 </div>

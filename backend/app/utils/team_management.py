@@ -202,8 +202,32 @@ def invite_team_member(inviter_user_id, property_id, invited_email, role, custom
         db.session.add(invitation)
         db.session.commit()
         
-        # Send invitation email/SMS (implement based on your preference)
-        # For now, return the invitation token for testing
+        # Send invitation email
+        try:
+            from .email_service import send_team_invitation_email
+            
+            # Get inviter and property details
+            inviter = User.query.get(inviter_user_id)
+            property_obj = Property.query.get(property_id)
+            
+            email_result = send_team_invitation_email(
+                invited_email=invited_email,
+                inviter_name=inviter.name if inviter else 'Unknown',
+                property_name=property_obj.name if property_obj else 'Unknown Property',
+                role=role,
+                invitation_token=invitation_token,
+                expires_at=expires_at
+            )
+            
+            # Log email sending result
+            if email_result['success']:
+                current_app.logger.info(f"Invitation email sent to {invited_email} via {email_result.get('method', 'unknown')}")
+            else:
+                current_app.logger.error(f"Failed to send invitation email: {email_result.get('error')}")
+                
+        except Exception as email_error:
+            current_app.logger.error(f"Error sending invitation email: {email_error}")
+            # Don't fail the invitation if email fails
         
         return {
             'success': True,
@@ -272,6 +296,26 @@ def accept_team_invitation(invitation_token, user_id):
         
         db.session.add(team_member)
         db.session.commit()
+        
+        # Send acceptance notification to inviter
+        try:
+            from .email_service import send_invitation_accepted_email
+            
+            # Get inviter and property details
+            inviter = User.query.get(invitation.inviter_user_id)
+            property_obj = Property.query.get(invitation.property_id)
+            
+            if inviter and property_obj:
+                send_invitation_accepted_email(
+                    inviter_email=inviter.email,
+                    invited_user_name=user.name,
+                    property_name=property_obj.name,
+                    role=invitation.role
+                )
+                
+        except Exception as email_error:
+            current_app.logger.error(f"Error sending acceptance notification: {email_error}")
+            # Don't fail the acceptance if email fails
         
         return {
             'success': True,

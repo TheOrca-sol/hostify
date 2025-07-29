@@ -10,6 +10,7 @@ import GuestVerification from './pages/GuestVerification'
 import ContractTemplates from './pages/ContractTemplates'
 import MessageTemplates from './pages/MessageTemplates'
 import ContractSigning from './components/ContractSigning'
+import InvitationAcceptance from './pages/InvitationAcceptance'
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -40,6 +41,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/verify/:token" element={<GuestVerification />} />
             <Route path="/contract/sign/:token" element={<ContractSigning mode="sign" />} />
+            <Route path="/invite/:token" element={<InvitationAcceptance />} />
             
             {/* Protected Routes */}
             <Route path="/" element={
