@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { api } from '../services/api'
-import { Users, Plus, Search, Filter, Crown, User, Wrench, Sparkles, Eye, Building, Mail, Trash2 } from 'lucide-react'
+import { Users, Plus, Search, Filter, Crown, User, Wrench, Sparkles, Eye, Building, Mail, Trash2, Phone, MessageSquare } from 'lucide-react'
+import PhoneInput from '../components/PhoneInput'
 import { toast } from '../components/Toaster'
 
 const ROLE_CONFIG = {
@@ -47,6 +48,8 @@ export default function TeamManagement() {
   const [inviteForm, setInviteForm] = useState({
     propertyId: 'all',
     email: '',
+    phone: '',
+    invitationMethod: 'email', // 'email' or 'sms'
     role: 'cohost'
   })
   const [inviting, setInviting] = useState(false)
@@ -121,7 +124,10 @@ export default function TeamManagement() {
   const handleInvite = async (e) => {
     e.preventDefault()
     
-    if (!inviteForm.propertyId || !inviteForm.email || !inviteForm.role) {
+    // Validation - check appropriate field based on invitation method
+    const contactInfo = inviteForm.invitationMethod === 'email' ? inviteForm.email : inviteForm.phone
+    
+    if (!inviteForm.propertyId || !contactInfo || !inviteForm.role) {
       toast.error('Please fill in all fields')
       return
     }
@@ -144,10 +150,19 @@ export default function TeamManagement() {
         // Send invitations to all properties
         for (const property of ownedProperties) {
           try {
-            const result = await api.inviteTeamMember(property.id, {
-              email: inviteForm.email,
-              role: inviteForm.role
-            })
+            // Prepare invitation data based on method
+            const invitationData = {
+              role: inviteForm.role,
+              invitation_method: inviteForm.invitationMethod
+            }
+            
+            if (inviteForm.invitationMethod === 'email') {
+              invitationData.email = inviteForm.email
+            } else {
+              invitationData.phone = inviteForm.phone
+            }
+            
+            const result = await api.inviteTeamMember(property.id, invitationData)
             
             if (result.success) {
               successCount++
@@ -160,9 +175,11 @@ export default function TeamManagement() {
         }
 
         if (successCount === ownedProperties.length) {
-          toast.success(`✅ ${inviteForm.email} invited to all ${successCount} properties`)
+          const methodIcon = inviteForm.invitationMethod === 'email' ? '📧' : '📱'
+          toast.success(`✅ ${methodIcon} ${contactInfo} invited to all ${successCount} properties`)
         } else if (successCount > 0) {
-          toast.success(`✅ ${inviteForm.email} invited to ${successCount}/${ownedProperties.length} properties`)
+          const methodIcon = inviteForm.invitationMethod === 'email' ? '📧' : '📱'
+          toast.success(`✅ ${methodIcon} ${contactInfo} invited to ${successCount}/${ownedProperties.length} properties`)
           if (errors.length > 0) {
             console.warn('Some invitations failed:', errors)
           }
@@ -171,13 +188,23 @@ export default function TeamManagement() {
         }
       } else {
         // Invite to specific property
-        const result = await api.inviteTeamMember(inviteForm.propertyId, {
-          email: inviteForm.email,
-          role: inviteForm.role
-        })
+        // Prepare invitation data based on method
+        const invitationData = {
+          role: inviteForm.role,
+          invitation_method: inviteForm.invitationMethod
+        }
+        
+        if (inviteForm.invitationMethod === 'email') {
+          invitationData.email = inviteForm.email
+        } else {
+          invitationData.phone = inviteForm.phone
+        }
+        
+        const result = await api.inviteTeamMember(inviteForm.propertyId, invitationData)
 
         if (result.success) {
-          toast.success(`✅ Invitation sent to ${inviteForm.email}`)
+          const methodIcon = inviteForm.invitationMethod === 'email' ? '📧' : '📱'
+          toast.success(`✅ ${methodIcon} Invitation sent to ${contactInfo}`)
         } else {
           toast.error(result.error || 'Failed to send invitation')
           return
@@ -185,7 +212,7 @@ export default function TeamManagement() {
       }
 
       // Reset form and close modal
-      setInviteForm({ propertyId: 'all', email: '', role: 'cohost' })
+      setInviteForm({ propertyId: 'all', email: '', phone: '', invitationMethod: 'email', role: 'cohost' })
       setShowInviteModal(false)
       
       // Refresh team data
@@ -511,19 +538,80 @@ export default function TeamManagement() {
                   )}
                 </div>
 
+                {/* Invitation Method Selector */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email Address
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Invitation Method
                   </label>
-                  <input
-                    type="email"
-                    value={inviteForm.email}
-                    onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter email address"
-                    required
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setInviteForm({ ...inviteForm, invitationMethod: 'email', phone: '' })}
+                      className={`flex items-center justify-center px-4 py-2 rounded-md border transition-colors ${
+                        inviteForm.invitationMethod === 'email'
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <Mail className="h-4 w-4 mr-2" />
+                      Email
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInviteForm({ ...inviteForm, invitationMethod: 'sms', email: '' })}
+                      className={`flex items-center justify-center px-4 py-2 rounded-md border transition-colors ${
+                        inviteForm.invitationMethod === 'sms'
+                          ? 'border-green-500 bg-green-50 text-green-700'
+                          : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <MessageSquare className="h-4 w-4 mr-2" />
+                      SMS
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {inviteForm.invitationMethod === 'email' 
+                      ? 'Best for co-hosts and agencies' 
+                      : 'Best for cleaners and maintenance workers'}
+                  </p>
                 </div>
+
+                {/* Conditional Email/Phone Input */}
+                {inviteForm.invitationMethod === 'email' ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Mail className="h-4 w-4 text-gray-400" />
+                      </div>
+                      <input
+                        type="email"
+                        value={inviteForm.email}
+                        onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter email address"
+                        required
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Phone Number
+                    </label>
+                    <PhoneInput
+                      value={inviteForm.phone}
+                      onChange={(phone) => setInviteForm({ ...inviteForm, phone })}
+                      placeholder="Enter phone number"
+                      required
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      We'll send an SMS with invitation instructions
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">

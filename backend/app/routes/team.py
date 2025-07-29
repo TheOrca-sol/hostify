@@ -34,32 +34,54 @@ def invite_team_member_route(property_id):
 
         # Validate required fields
         invited_email = data.get('email')
+        invited_phone = data.get('phone')
+        invitation_method = data.get('invitation_method', 'email')  # 'email' or 'sms'
         role = data.get('role')
         custom_permissions = data.get('permissions')
 
-        if not invited_email or not role:
-            return jsonify({'success': False, 'error': 'Email and role are required'}), 400
+        # Check that either email or phone is provided based on method
+        if invitation_method == 'email':
+            if not invited_email or not role:
+                return jsonify({'success': False, 'error': 'Email and role are required for email invitations'}), 400
+        elif invitation_method == 'sms':
+            if not invited_phone or not role:
+                return jsonify({'success': False, 'error': 'Phone number and role are required for SMS invitations'}), 400
+        else:
+            return jsonify({'success': False, 'error': 'Invalid invitation method. Must be "email" or "sms"'}), 400
 
         # Valid roles
         valid_roles = ['cohost', 'agency', 'cleaner', 'maintenance', 'assistant']
         if role not in valid_roles:
             return jsonify({'success': False, 'error': f'Invalid role. Must be one of: {valid_roles}'}), 400
 
-        # Send invitation
-        result = invite_team_member(
-            inviter_user_id=user['id'],
-            property_id=property_id,
-            invited_email=invited_email,
-            role=role,
-            custom_permissions=custom_permissions
-        )
+        # Send invitation based on method
+        if invitation_method == 'sms':
+            from ..utils.team_management import invite_team_member_sms
+            result = invite_team_member_sms(
+                inviter_user_id=user['id'],
+                property_id=property_id,
+                invited_phone=invited_phone,
+                role=role,
+                custom_permissions=custom_permissions
+            )
+            contact_info = invited_phone
+        else:
+            result = invite_team_member(
+                inviter_user_id=user['id'],
+                property_id=property_id,
+                invited_email=invited_email,
+                role=role,
+                custom_permissions=custom_permissions
+            )
+            contact_info = invited_email
 
         if result['success']:
             return jsonify({
                 'success': True,
-                'message': f'Invitation sent to {invited_email}',
-                'invitation_id': result['invitation_id'],
-                'expires_at': result['expires_at']
+                'message': f'Invitation sent to {contact_info}',
+                'invitation_token': result.get('invitation_token'),
+                'invitation_url': result.get('invitation_url'),
+                'method': invitation_method
             })
         else:
             return jsonify(result), 400

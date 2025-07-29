@@ -521,7 +521,9 @@ class TeamInvitation(db.Model):
     id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
     property_id = db.Column(UUID(as_uuid=True), db.ForeignKey('properties.id', ondelete='CASCADE'), nullable=False)
     inviter_user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
-    invited_email = db.Column(db.Text, nullable=False)
+    invited_email = db.Column(db.Text, nullable=True)  # Made optional for phone invitations
+    invited_phone = db.Column(db.Text, nullable=True)  # Added for SMS invitations
+    invitation_method = db.Column(db.Text, nullable=False, server_default=text("'email'"))  # 'email' or 'sms'
     role = db.Column(db.Text, nullable=False)
     permissions = db.Column(JSON, nullable=True)
     invitation_token = db.Column(db.Text, unique=True, nullable=False)
@@ -540,6 +542,8 @@ class TeamInvitation(db.Model):
             'property_id': str(self.property_id),
             'inviter_user_id': str(self.inviter_user_id),
             'invited_email': self.invited_email,
+            'invited_phone': self.invited_phone,
+            'invitation_method': self.invitation_method,
             'role': self.role,
             'permissions': self.permissions,
             'invitation_token': self.invitation_token,
@@ -551,3 +555,44 @@ class TeamInvitation(db.Model):
             'property_name': self.property.name if self.property else None,
             'inviter_name': self.inviter.name if self.inviter else None
         } 
+
+class PhoneVerification(db.Model):
+    """Phone verification codes for SMS authentication"""
+    __tablename__ = 'phone_verifications'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    phone_number = db.Column(db.Text, nullable=False)  # E.164 format
+    verification_code = db.Column(db.Text, nullable=False)  # 6-digit code
+    purpose = db.Column(db.Text, nullable=False)  # 'login', 'invitation_accept'
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=True)  # If linking to existing user
+    invitation_token = db.Column(db.Text, nullable=True)  # If for team invitation
+    is_verified = db.Column(db.Boolean, server_default=text('false'))
+    attempts = db.Column(db.Integer, server_default=text('0'))  # Track failed attempts
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    verified_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    
+    # Relationships
+    user = db.relationship('User', backref='phone_verifications')
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'phone_number': self.phone_number,
+            'purpose': self.purpose,
+            'user_id': str(self.user_id) if self.user_id else None,
+            'invitation_token': self.invitation_token,
+            'is_verified': self.is_verified,
+            'attempts': self.attempts,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+            'verified_at': self.verified_at.isoformat() if self.verified_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
+    
+    def is_expired(self):
+        """Check if verification code has expired"""
+        return datetime.now(timezone.utc) > self.expires_at
+    
+    def can_attempt(self):
+        """Check if more attempts are allowed (max 3)"""
+        return self.attempts < 3 and not self.is_expired() 

@@ -19,6 +19,7 @@ from .routes.user import user_bp
 from .routes.dashboard import dashboard_bp
 from .routes.auth import auth_bp
 from .routes.team import team_bp
+from .routes.sms_auth import sms_auth_bp
 import os
 
 def create_app():
@@ -57,6 +58,7 @@ def create_app():
     app.register_blueprint(dashboard_bp, url_prefix='/api/dashboard')
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(team_bp, url_prefix='/api')
+    app.register_blueprint(sms_auth_bp, url_prefix='/api/sms-auth')
     
 
     return app 

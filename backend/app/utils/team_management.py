@@ -241,6 +241,107 @@ def invite_team_member(inviter_user_id, property_id, invited_email, role, custom
         current_app.logger.error(f"Error inviting team member: {e}")
         return {'success': False, 'error': 'Failed to send invitation'}
 
+def invite_team_member_sms(inviter_user_id, property_id, invited_phone, role, custom_permissions=None):
+    """
+    Invite someone to join a property team via SMS
+    """
+    try:
+        # Convert property_id to UUID if it's a string
+        if isinstance(property_id, str):
+            import uuid as uuid_module
+            property_id = uuid_module.UUID(property_id)
+        
+        # Normalize phone number
+        from .sms_auth import SMSAuthService
+        normalized_phone = SMSAuthService.normalize_phone_number(invited_phone)
+        
+        # Verify inviter has permission
+        if not check_user_property_permission(inviter_user_id, property_id, 'invite_team_members'):
+            return {'success': False, 'error': 'You do not have permission to invite team members'}
+        
+        # Check if SMS invitation already exists
+        existing_invitation = TeamInvitation.query.filter_by(
+            property_id=property_id,
+            invited_phone=normalized_phone,
+            invitation_method='sms',
+            status='pending'
+        ).first()
+        
+        if existing_invitation:
+            return {'success': False, 'error': 'Invitation already sent to this phone number'}
+        
+        # Check if user is already a team member
+        invited_user = User.query.filter_by(phone=normalized_phone).first()
+        if invited_user:
+            existing_member = PropertyTeamMember.query.filter_by(
+                property_id=property_id,
+                user_id=invited_user.id,
+                is_active=True
+            ).first()
+            
+            if existing_member:
+                return {'success': False, 'error': 'User is already a team member'}
+        
+        # Create SMS invitation
+        invitation_token = secrets.token_urlsafe(32)
+        expires_at = datetime.now(timezone.utc) + timedelta(days=7)  # 7 days to accept
+        
+        # Use custom permissions or default for role
+        permissions = custom_permissions or DEFAULT_PERMISSIONS.get(role, {})
+        
+        invitation = TeamInvitation(
+            property_id=property_id,
+            inviter_user_id=inviter_user_id,
+            invited_phone=normalized_phone,
+            invitation_method='sms',
+            role=role,
+            permissions=permissions,
+            invitation_token=invitation_token,
+            expires_at=expires_at
+        )
+        
+        db.session.add(invitation)
+        db.session.commit()
+        
+        # Send invitation SMS
+        try:
+            from .sms import send_sms
+            
+            # Get inviter and property details
+            inviter = User.query.get(inviter_user_id)
+            property_obj = Property.query.get(property_id)
+            
+            # Create invitation link
+            invitation_url = f"http://localhost:3000/sms-invite/{invitation_token}"
+            
+            # Send SMS message
+            message = f"You're invited to join {property_obj.name if property_obj else 'a property'} team as {role} by {inviter.name if inviter else 'Property Manager'}.\n\nAccept: {invitation_url}\n\nExpires: {expires_at.strftime('%b %d, %Y')}"
+            
+            sms_result = send_sms(normalized_phone, message)
+            
+            # Log SMS sending result
+            if sms_result['success']:
+                current_app.logger.info(f"Invitation SMS sent to {normalized_phone} (SID: {sms_result.get('sid')})")
+            else:
+                current_app.logger.error(f"Failed to send invitation SMS: {sms_result.get('error')}")
+                # Don't fail the invitation if SMS fails - they can still use the link
+                
+        except Exception as sms_error:
+            current_app.logger.error(f"Error sending invitation SMS: {sms_error}")
+            # Don't fail the invitation if SMS fails
+        
+        return {
+            'success': True,
+            'invitation_token': invitation_token,
+            'message': f'SMS invitation sent to {normalized_phone}',
+            'invitation_url': f"http://localhost:3000/sms-invite/{invitation_token}"
+        }
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error inviting team member via SMS: {str(e)}")
+        return {'success': False, 'error': 'Failed to send invitation'}
+
 def accept_team_invitation(invitation_token, user_id):
     """
     Accept a team invitation
