@@ -21,6 +21,7 @@ class User(db.Model):
     name = db.Column(db.Text, nullable=False)
     phone = db.Column(db.Text, nullable=True)
     company_name = db.Column(db.Text, nullable=True)
+    signature = db.Column(db.Text, nullable=True)  # Base64 encoded signature image
     settings = db.Column(JSON, nullable=True)  # User preferences and settings
     created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
     
@@ -36,6 +37,7 @@ class User(db.Model):
             'name': self.name,
             'phone': self.phone,
             'company_name': self.company_name,
+            'signature': self.signature,
             'settings': self.settings,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }

@@ -20,6 +20,7 @@ def create_user(firebase_uid, email, name, **kwargs):
             name=name,
             phone=kwargs.get('phone'),
             company_name=kwargs.get('company_name'),
+            signature=kwargs.get('signature'),
             settings=kwargs.get('settings', {})
         )
         db.session.add(user)

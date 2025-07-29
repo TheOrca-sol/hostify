@@ -116,9 +116,40 @@ def generate_contract_pdf(content, guest, contract):
         story.append(Paragraph("SIGNATURES", header_style))
         story.append(Spacer(1, 20))
         
+        # Get host signature from property owner
+        host_signature_cell = '_________________'
+        try:
+            if contract.reservation and contract.reservation.property and contract.reservation.property.owner:
+                host = contract.reservation.property.owner
+                if host.signature:
+                    # Create temporary host signature image
+                    host_signature_data = host.signature
+                    if host_signature_data.startswith('data:image/'):
+                        host_signature_data = host_signature_data.split(',')[1]
+                    
+                    host_signature_bytes = base64.b64decode(host_signature_data)
+                    host_signature_image = PILImage.open(io.BytesIO(host_signature_bytes))
+                    
+                    # Save temporary host signature file
+                    temp_host_signature_path = os.path.join(contracts_dir, f"temp_host_signature_{contract.id}_{uuid.uuid4()}.png")
+                    host_signature_image.save(temp_host_signature_path)
+                    
+                    # Create ReportLab image for host signature
+                    host_sig_img = Image(temp_host_signature_path, width=2*inch, height=1*inch)
+                    host_signature_cell = host_sig_img
+                    
+                    # Clean up temp file immediately after use
+                    try:
+                        os.remove(temp_host_signature_path)
+                    except:
+                        pass
+        except Exception as sig_error:
+            current_app.logger.error(f"Error processing host signature: {sig_error}")
+            host_signature_cell = '_________________'
+        
         # Signature table
         signature_data = [
-            ['Host Signature:', '_________________'],
+            ['Host Signature:', host_signature_cell],
             ['Guest Signature:', '_________________'],
             ['Date:', datetime.now().strftime('%B %d, %Y')]
         ]
@@ -244,7 +275,45 @@ def generate_signed_contract_pdf(content, guest, contract, signature_data):
         story.append(Paragraph("DIGITAL SIGNATURES", header_style))
         story.append(Spacer(1, 20))
         
-        # Add actual signature image if available
+        # Add host signature first
+        try:
+            if contract.reservation and contract.reservation.property and contract.reservation.property.owner:
+                host = contract.reservation.property.owner
+                if host.signature:
+                    story.append(Paragraph("Host Signature:", normal_style))
+                    story.append(Spacer(1, 10))
+                    
+                    # Process host signature
+                    host_signature_data = host.signature
+                    if host_signature_data.startswith('data:image/'):
+                        host_signature_data = host_signature_data.split(',')[1]
+                    
+                    host_signature_bytes = base64.b64decode(host_signature_data)
+                    host_signature_image = PILImage.open(io.BytesIO(host_signature_bytes))
+                    
+                    # Save temporary host signature file
+                    temp_host_signature_path = os.path.join(contracts_dir, f"temp_host_signature_{contract.id}_{uuid.uuid4()}.png")
+                    host_signature_image.save(temp_host_signature_path)
+                    
+                    # Add host signature image to PDF
+                    host_img = Image(temp_host_signature_path, width=3*inch, height=1.5*inch)
+                    story.append(host_img)
+                    story.append(Spacer(1, 20))
+                    
+                    # Clean up temp host signature file
+                    try:
+                        os.remove(temp_host_signature_path)
+                    except:
+                        pass
+                else:
+                    story.append(Paragraph("Host Signature: [No signature on file]", normal_style))
+                    story.append(Spacer(1, 10))
+        except Exception as host_sig_error:
+            current_app.logger.error(f"Error processing host signature: {host_sig_error}")
+            story.append(Paragraph("Host Signature: [Error loading signature]", normal_style))
+            story.append(Spacer(1, 10))
+        
+        # Add actual guest signature image if available
         if signature_data and signature_data.get('signature'):
             try:
                 # Extract base64 data from data URL

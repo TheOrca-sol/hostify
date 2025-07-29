@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useAuth } from '../services/auth'
 import { useNavigate } from 'react-router-dom'
+import SignatureCapture from '../components/SignatureCapture'
 
 export default function ProfileSetup() {
   const { user, setupUserProfile, profileLoading } = useAuth()
@@ -9,7 +10,8 @@ export default function ProfileSetup() {
     name: user?.displayName || '',
     phone: '',
     company_name: '',
-    business_type: 'rental_host'
+    business_type: 'rental_host',
+    signature: null
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -22,6 +24,10 @@ export default function ProfileSetup() {
     try {
       if (!formData.name.trim()) {
         throw new Error('Name is required')
+      }
+
+      if (!formData.signature) {
+        throw new Error('Digital signature is required')
       }
 
       const result = await setupUserProfile(formData)
@@ -130,6 +136,29 @@ export default function ProfileSetup() {
                 <option value="hotel">Hotel/Riad</option>
                 <option value="other">Other</option>
               </select>
+            </div>
+          </div>
+
+          {/* Digital Signature Section */}
+          <div className="space-y-6">
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Digital Signature</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Your digital signature will be used for contracts and official documents. 
+                This helps ensure the authenticity of your agreements with guests.
+              </p>
+              
+              <SignatureCapture
+                label="Your Digital Signature"
+                placeholder="Sign your name here (this will be used in contracts)"
+                value={formData.signature}
+                onChange={(signature) => setFormData({ ...formData, signature })}
+                width={500}
+                height={150}
+                required={true}
+                showDownload={true}
+                className="max-w-xl"
+              />
             </div>
           </div>
 
