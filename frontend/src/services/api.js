@@ -822,6 +822,21 @@ export const api = {
     }
   },
 
+  async getOccupancyData(period = 'month') {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/dashboard/occupancy?period=${period}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting occupancy data:', error);
+      return { success: false, error: 'Failed to fetch occupancy data' };
+    }
+  },
+
   // Auth
   async generateFileToken() {
     try {

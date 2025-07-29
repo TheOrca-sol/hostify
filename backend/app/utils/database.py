@@ -3,7 +3,7 @@ Database utilities for Hostify Property Management Platform
 Updated to support property-centric architecture with reservations and contracts
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from ..models import db, User, Property, Reservation, Guest, VerificationLink, Contract, ContractTemplate, SyncLog, MessageTemplate
 from ..constants import TEMPLATE_TYPES # Import from the new central location
 import uuid
@@ -794,9 +794,243 @@ def delete_property(property_id, user_id):
         print(f"Database error: {str(e)}")
         return False
 
+def calculate_occupancy_rates(user_id, current_date, period='month'):
+    """
+    Calculate occupancy rates for user's properties for different periods.
+    Returns current period, future period, and per-property breakdown.
+    
+    Args:
+        user_id: User UUID
+        current_date: Reference date
+        period: 'week', 'month', 'quarter', or 'year'
+    """
+    try:
+        from calendar import monthrange
+        import calendar
+        
+        user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
+        
+        # Calculate date ranges based on period
+        if period == 'week':
+            # Current week (Monday to Sunday)
+            days_since_monday = current_date.weekday()
+            current_start = (current_date - timedelta(days=days_since_monday)).replace(hour=0, minute=0, second=0, microsecond=0)
+            current_end = (current_start + timedelta(days=6)).replace(hour=23, minute=59, second=59)
+            
+            # Next week
+            future_start = current_end + timedelta(days=1)
+            future_end = (future_start + timedelta(days=6)).replace(hour=23, minute=59, second=59)
+            
+            current_label = f"Week of {current_start.strftime('%b %d')}"
+            future_label = f"Week of {future_start.strftime('%b %d')}"
+            
+        elif period == 'quarter':
+            # Current quarter
+            quarter = (current_date.month - 1) // 3 + 1
+            current_start = datetime(current_date.year, (quarter - 1) * 3 + 1, 1)
+            if quarter == 4:
+                current_end = datetime(current_date.year, 12, 31, 23, 59, 59)
+            else:
+                current_end = datetime(current_date.year, quarter * 3 + 1, 1) - timedelta(seconds=1)
+            
+            # Next quarter
+            if quarter == 4:
+                future_start = datetime(current_date.year + 1, 1, 1)
+                future_end = datetime(current_date.year + 1, 3, 31, 23, 59, 59)
+                future_label = f"Q1 {current_date.year + 1}"
+            else:
+                future_start = datetime(current_date.year, quarter * 3 + 1, 1)
+                if quarter == 3:
+                    future_end = datetime(current_date.year, 12, 31, 23, 59, 59)
+                else:
+                    future_end = datetime(current_date.year, (quarter + 1) * 3 + 1, 1) - timedelta(seconds=1)
+                future_label = f"Q{quarter + 1} {current_date.year}"
+            
+            current_label = f"Q{quarter} {current_date.year}"
+            
+        elif period == 'year':
+            # Current year
+            current_start = datetime(current_date.year, 1, 1)
+            current_end = datetime(current_date.year, 12, 31, 23, 59, 59)
+            
+            # Next year
+            future_start = datetime(current_date.year + 1, 1, 1)
+            future_end = datetime(current_date.year + 1, 12, 31, 23, 59, 59)
+            
+            current_label = str(current_date.year)
+            future_label = str(current_date.year + 1)
+            
+        else:  # Default to month
+            # Current month calculations
+            current_start = current_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            days_in_current_month = monthrange(current_date.year, current_date.month)[1]
+            current_end = current_start.replace(day=days_in_current_month, hour=23, minute=59, second=59)
+            
+            # Next month calculations
+            if current_date.month == 12:
+                future_start = current_date.replace(year=current_date.year + 1, month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            else:
+                future_start = current_date.replace(month=current_date.month + 1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            days_in_future_month = monthrange(future_start.year, future_start.month)[1]
+            future_end = future_start.replace(day=days_in_future_month, hour=23, minute=59, second=59)
+            
+            current_label = calendar.month_name[current_date.month]
+            future_label = calendar.month_name[future_start.month]
+        
+        # Get all user properties
+        properties = db.session.query(Property).filter_by(user_id=user_uuid).all()
+        total_properties = len(properties)
+        
+        if total_properties == 0:
+            return {
+                'currentPeriod': {'rate': 0, 'bookedDays': 0, 'totalDays': 0, 'label': current_label},
+                'futurePeriod': {'rate': 0, 'bookedDays': 0, 'totalDays': 0, 'label': future_label},
+                'properties': [],
+                'overall': 0,
+                'period': period
+            }
+        
+        # Calculate current period occupancy
+        current_reservations = (db.session.query(Reservation)
+                                     .join(Property)
+                                     .filter(Property.user_id == user_uuid)
+                                     .filter(Reservation.status == 'confirmed')
+                                     .filter(Reservation.check_out > current_start)
+                                     .filter(Reservation.check_in < current_end)
+                                     .all())
+        
+        # Calculate future period occupancy
+        future_reservations = (db.session.query(Reservation)
+                                  .join(Property)
+                                  .filter(Property.user_id == user_uuid)
+                                  .filter(Reservation.status == 'confirmed')
+                                  .filter(Reservation.check_out > future_start)
+                                  .filter(Reservation.check_in < future_end)
+                                  .all())
+        
+        # Calculate booked days for current period
+        current_booked_days = 0
+        current_occupied_dates = set()  # Track unique dates to avoid double-counting overlaps
+        
+        for reservation in current_reservations:
+            start_date = max(reservation.check_in.date(), current_start.date())
+            end_date = min(reservation.check_out.date(), current_end.date())
+            if start_date <= end_date:
+                # Add each date in the range to our set (automatically handles overlaps)
+                current_date_iter = start_date
+                while current_date_iter <= end_date:
+                    current_occupied_dates.add((current_date_iter, reservation.property_id))
+                    current_date_iter += timedelta(days=1)
+        
+        current_booked_days = len(current_occupied_dates)
+        
+        # Calculate booked days for future period  
+        future_booked_days = 0
+        future_occupied_dates = set()  # Track unique dates to avoid double-counting overlaps
+        
+        for reservation in future_reservations:
+            start_date = max(reservation.check_in.date(), future_start.date())
+            end_date = min(reservation.check_out.date(), future_end.date())
+            if start_date <= end_date:
+                # Add each date in the range to our set (automatically handles overlaps)
+                current_date_iter = start_date
+                while current_date_iter <= end_date:
+                    future_occupied_dates.add((current_date_iter, reservation.property_id))
+                    current_date_iter += timedelta(days=1)
+        
+        future_booked_days = len(future_occupied_dates)
+        
+        # Calculate total available days (properties * days in period) - Fixed calculation
+        current_period_days = (current_end.date() - current_start.date()).days + 1
+        future_period_days = (future_end.date() - future_start.date()).days + 1
+        current_total_days = total_properties * current_period_days
+        future_total_days = total_properties * future_period_days
+        
+        # Calculate occupancy rates
+        current_rate = round((current_booked_days / current_total_days) * 100, 1) if current_total_days > 0 else 0
+        future_rate = round((future_booked_days / future_total_days) * 100, 1) if future_total_days > 0 else 0
+        
+
+        
+        # Calculate per-property occupancy for current period
+        property_occupancy = []
+        
+        for prop in properties:
+            prop_reservations = [r for r in current_reservations if r.property_id == prop.id]
+            prop_occupied_dates = set()
+            
+            for reservation in prop_reservations:
+                start_date = max(reservation.check_in.date(), current_start.date())
+                end_date = min(reservation.check_out.date(), current_end.date())
+                if start_date <= end_date:
+                    # Add each date in the range to our set (automatically handles overlaps)
+                    current_date_iter = start_date
+                    while current_date_iter <= end_date:
+                        prop_occupied_dates.add(current_date_iter)
+                        current_date_iter += timedelta(days=1)
+            
+            prop_booked_days = len(prop_occupied_dates)
+            prop_rate = round((prop_booked_days / current_period_days) * 100, 1) if current_period_days > 0 else 0
+            
+            property_occupancy.append({
+                'id': str(prop.id),
+                'name': prop.name,
+                'rate': prop_rate,
+                'bookedDays': prop_booked_days,
+                'totalDays': current_period_days
+            })
+        
+        # Calculate overall occupancy (average of current and future periods)
+        overall_rate = round((current_rate + future_rate) / 2, 1)
+        
+        return {
+            'currentPeriod': {
+                'rate': current_rate,
+                'bookedDays': current_booked_days,
+                'totalDays': current_total_days,
+                'label': current_label
+            },
+            'futurePeriod': {
+                'rate': future_rate,
+                'bookedDays': future_booked_days,
+                'totalDays': future_total_days,
+                'label': future_label
+            },
+            'properties': property_occupancy,
+            'overall': overall_rate,
+            'period': period,
+            # Keep backward compatibility
+            'currentMonth': {
+                'rate': current_rate,
+                'bookedDays': current_booked_days,
+                'totalDays': current_total_days,
+                'month': current_label
+            },
+            'nextMonth': {
+                'rate': future_rate,
+                'bookedDays': future_booked_days,
+                'totalDays': future_total_days,
+                'month': future_label
+            }
+        }
+        
+    except Exception as e:
+        print(f"Error calculating occupancy rates: {str(e)}")
+        return {
+            'currentPeriod': {'rate': 0, 'bookedDays': 0, 'totalDays': 0, 'label': 'Unknown'},
+            'futurePeriod': {'rate': 0, 'bookedDays': 0, 'totalDays': 0, 'label': 'Unknown'},
+            'properties': [],
+            'overall': 0,
+            'period': period,
+            # Keep backward compatibility
+            'currentMonth': {'rate': 0, 'bookedDays': 0, 'totalDays': 0, 'month': 'Unknown'},
+            'nextMonth': {'rate': 0, 'bookedDays': 0, 'totalDays': 0, 'month': 'Unknown'}
+        }
+
 def get_user_dashboard_stats(user_id):
     """
-    Get dashboard statistics for a user.
+    Get dashboard statistics for a user including occupancy rates.
     """
     try:
         user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
@@ -814,11 +1048,15 @@ def get_user_dashboard_stats(user_id):
         
         active_guests = reservations_query.filter(Reservation.check_in <= now, Reservation.check_out >= now).count()
 
+        # Calculate occupancy rates
+        occupancy_data = calculate_occupancy_rates(user_uuid, now)
+
         return {
             'totalProperties': total_properties,
             'totalReservations': total_reservations,
             'upcomingReservations': upcoming_reservations,
-            'activeGuests': active_guests
+            'activeGuests': active_guests,
+            'occupancy': occupancy_data
         }
 
     except Exception as e:

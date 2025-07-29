@@ -7,6 +7,8 @@ import GuestList from '../components/GuestList'
 import CommunicationCenter from '../components/CommunicationCenter'
 import ContractList from '../components/ContractList'
 import TeamManagement from './TeamManagement'
+import OccupancyCalendar from '../components/OccupancyCalendar'
+import PropertyOccupancyChart from '../components/PropertyOccupancyChart'
 import { Home, Calendar, Users, Mail, BarChart, FileText, UserCheck } from 'lucide-react'
 
 export default function Dashboard() {
@@ -15,11 +17,17 @@ export default function Dashboard() {
     totalProperties: 0,
     totalReservations: 0,
     upcomingReservations: 0,
-    activeGuests: 0
+    activeGuests: 0,
+    occupancy: null
   })
   const [recentActivity, setRecentActivity] = useState([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
+  const [occupancyPeriod, setOccupancyPeriod] = useState('month')
+  const [occupancyData, setOccupancyData] = useState(null)
+  const [properties, setProperties] = useState([])
+  const [reservations, setReservations] = useState([])
+  const [showCalendarView, setShowCalendarView] = useState(false)
 
   useEffect(() => {
     loadDashboardData()
@@ -36,11 +44,20 @@ export default function Dashboard() {
         console.error('Failed to load dashboard stats:', statsResult.error);
       }
 
-      // Simplified recent activity (can be enhanced later)
-      const reservationsResult = await api.getReservations({ page: 1, per_page: 5 });
-      if (reservationsResult.success) {
+      // Load properties for interactive components
+      const propertiesResult = await api.getProperties();
+      if (propertiesResult.success) {
+        setProperties(propertiesResult.properties);
+      }
+
+      // Load reservations for interactive components
+      const allReservationsResult = await api.getReservations({ page: 1, per_page: 100 });
+      if (allReservationsResult.success) {
+        setReservations(allReservationsResult.reservations);
+        
+        // Simplified recent activity (can be enhanced later)
         setRecentActivity(
-          reservationsResult.reservations.map(r => ({
+          allReservationsResult.reservations.slice(0, 5).map(r => ({
             type: 'reservation',
             title: `New reservation: ${r.guest_name_partial || 'Guest'}`,
             timestamp: r.created_at,
@@ -54,6 +71,40 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
+
+  const loadOccupancyData = async (period) => {
+    try {
+      const result = await api.getOccupancyData(period);
+      if (result.success) {
+        setOccupancyData(result.occupancy);
+      } else {
+        console.error('Failed to load occupancy data:', result.error);
+        // Fallback to existing data if API call fails
+        if (stats.occupancy) {
+          setOccupancyData({
+            ...stats.occupancy,
+            period: period
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error loading occupancy data:', error);
+      // Fallback to existing data on error
+      if (stats.occupancy) {
+        setOccupancyData({
+          ...stats.occupancy,
+          period: period
+        });
+      }
+    }
+  };
+
+  // Load occupancy data when period changes
+  useEffect(() => {
+    if (stats.occupancy) {
+      loadOccupancyData(occupancyPeriod);
+    }
+  }, [occupancyPeriod, stats.occupancy]);
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: BarChart },
@@ -98,7 +149,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
         <div className="bg-white overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
@@ -170,6 +221,25 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Add Occupancy Stats Card */}
+        <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className="p-5">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <BarChart className="h-6 w-6 text-orange-400" />
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Average Occupancy</dt>
+                  <dd className="text-lg font-medium text-gray-900">
+                    {stats.occupancy ? `${stats.occupancy.overall}%` : '0%'}
+                  </dd>
+                </dl>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Navigation Tabs */}
@@ -228,6 +298,164 @@ export default function Dashboard() {
                   )}
                 </div>
               </div>
+
+              {/* Occupancy Analysis */}
+              {occupancyData && (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900 flex items-center">
+                      <BarChart className="h-5 w-5 mr-2 text-blue-600" />
+                      Occupancy Analysis
+                    </h3>
+                                         <div className="flex items-center space-x-4">
+                       <div className="flex items-center space-x-2">
+                         <label className="text-sm text-gray-600">Period:</label>
+                         <select
+                           value={occupancyPeriod}
+                           onChange={(e) => setOccupancyPeriod(e.target.value)}
+                           className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                         >
+                           <option value="week">This Week</option>
+                           <option value="month">This Month</option>
+                           <option value="quarter">This Quarter</option>
+                           <option value="year">This Year</option>
+                         </select>
+                       </div>
+                       
+                       <div className="flex items-center space-x-2">
+                         <label className="text-sm text-gray-600">View:</label>
+                         <div className="bg-gray-100 p-1 rounded-lg flex">
+                           <button
+                             onClick={() => setShowCalendarView(false)}
+                             className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                               !showCalendarView
+                                 ? 'bg-white text-gray-900 shadow-sm'
+                                 : 'text-gray-600 hover:text-gray-900'
+                             }`}
+                           >
+                             <BarChart className="h-4 w-4 mr-1 inline" />
+                             Charts
+                           </button>
+                           <button
+                             onClick={() => setShowCalendarView(true)}
+                             className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                               showCalendarView
+                                 ? 'bg-white text-gray-900 shadow-sm'
+                                 : 'text-gray-600 hover:text-gray-900'
+                             }`}
+                           >
+                             <Calendar className="h-4 w-4 mr-1 inline" />
+                             Calendar
+                           </button>
+                         </div>
+                       </div>
+                     </div>
+                  </div>
+
+                                     {/* Interactive Occupancy Views */}
+                   <div className="space-y-6">
+                     {showCalendarView ? (
+                       /* Calendar View */
+                       <OccupancyCalendar 
+                         occupancyData={occupancyData}
+                         properties={properties}
+                         reservations={reservations}
+                       />
+                     ) : (
+                       /* Charts View */
+                       <div className="space-y-6">
+                         {/* Summary Cards */}
+                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                           {/* Overall Occupancy */}
+                           <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 text-white">
+                             <div className="flex items-center justify-between">
+                               <div>
+                                 <h4 className="text-lg font-medium">Overall Occupancy</h4>
+                                 <p className="text-blue-100 text-sm">
+                                   {occupancyPeriod === 'week' ? 'Weekly' : 
+                                    occupancyPeriod === 'month' ? 'Monthly' : 
+                                    occupancyPeriod === 'quarter' ? 'Quarterly' : 'Yearly'} average
+                                 </p>
+                               </div>
+                               <div className="text-3xl font-bold">{occupancyData.overall}%</div>
+                             </div>
+                           </div>
+
+                           {/* Current Period */}
+                           <div className="bg-white border-2 border-gray-200 rounded-lg p-6">
+                             <div className="flex items-center justify-between mb-4">
+                               <h4 className="text-lg font-medium text-gray-900">
+                                 {occupancyData.currentPeriod?.label || occupancyData.currentMonth?.month || 'Current Period'}
+                               </h4>
+                               <div className="text-2xl font-bold text-green-600">
+                                 {occupancyData.currentPeriod?.rate || occupancyData.currentMonth?.rate || 0}%
+                               </div>
+                             </div>
+                             <div className="space-y-2">
+                               <div className="flex justify-between text-sm">
+                                 <span className="text-gray-600">Booked Days:</span>
+                                 <span className="font-medium">
+                                   {occupancyData.currentPeriod?.bookedDays || occupancyData.currentMonth?.bookedDays || 0}
+                                 </span>
+                               </div>
+                               <div className="flex justify-between text-sm">
+                                 <span className="text-gray-600">Total Available:</span>
+                                 <span className="font-medium">
+                                   {occupancyData.currentPeriod?.totalDays || occupancyData.currentMonth?.totalDays || 0}
+                                 </span>
+                               </div>
+                               <div className="w-full bg-gray-200 rounded-full h-2">
+                                 <div 
+                                   className="bg-green-600 h-2 rounded-full" 
+                                   style={{ width: `${occupancyData.currentPeriod?.rate || occupancyData.currentMonth?.rate || 0}%` }}
+                                 ></div>
+                               </div>
+                             </div>
+                           </div>
+
+                           {/* Future Period */}
+                           <div className="bg-white border-2 border-gray-200 rounded-lg p-6">
+                             <div className="flex items-center justify-between mb-4">
+                               <h4 className="text-lg font-medium text-gray-900">
+                                 {occupancyData.futurePeriod?.label || occupancyData.nextMonth?.month || 'Next Period'}
+                               </h4>
+                               <div className="text-2xl font-bold text-blue-600">
+                                 {occupancyData.futurePeriod?.rate || occupancyData.nextMonth?.rate || 0}%
+                               </div>
+                             </div>
+                             <div className="space-y-2">
+                               <div className="flex justify-between text-sm">
+                                 <span className="text-gray-600">Booked Days:</span>
+                                 <span className="font-medium">
+                                   {occupancyData.futurePeriod?.bookedDays || occupancyData.nextMonth?.bookedDays || 0}
+                                 </span>
+                               </div>
+                               <div className="flex justify-between text-sm">
+                                 <span className="text-gray-600">Total Available:</span>
+                                 <span className="font-medium">
+                                   {occupancyData.futurePeriod?.totalDays || occupancyData.nextMonth?.totalDays || 0}
+                                 </span>
+                               </div>
+                               <div className="w-full bg-gray-200 rounded-full h-2">
+                                 <div 
+                                   className="bg-blue-600 h-2 rounded-full" 
+                                   style={{ width: `${occupancyData.futurePeriod?.rate || occupancyData.nextMonth?.rate || 0}%` }}
+                                 ></div>
+                               </div>
+                             </div>
+                           </div>
+                         </div>
+
+                         {/* Property Performance Chart */}
+                         <PropertyOccupancyChart 
+                           occupancyData={occupancyData}
+                           period={occupancyPeriod}
+                         />
+                       </div>
+                     )}
+                   </div>
+                </div>
+              )}
 
               <div>
                 <h3 className="text-lg leading-6 font-medium text-gray-900">Quick Actions</h3>
