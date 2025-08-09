@@ -7,6 +7,7 @@ import GuestList from '../components/GuestList'
 import CommunicationCenter from '../components/CommunicationCenter'
 import ContractList from '../components/ContractList'
 import TeamManagement from './TeamManagement'
+import TeamsManagement from './TeamsManagement'
 import OccupancyCalendar from '../components/OccupancyCalendar'
 import PropertyOccupancyChart from '../components/PropertyOccupancyChart'
 import { Home, Calendar, Users, Mail, BarChart, FileText, UserCheck } from 'lucide-react'
@@ -113,7 +114,8 @@ export default function Dashboard() {
     { id: 'guests', name: 'Guests', icon: Users },
     { id: 'communications', name: 'Communications', icon: Mail },
     { id: 'contracts', name: 'Contracts', icon: FileText },
-    { id: 'team', name: 'Team', icon: UserCheck }
+    { id: 'teams', name: 'Teams', icon: UserCheck },
+    { id: 'team', name: 'Legacy Team', icon: UserCheck }
   ]
 
   if (loading) {
@@ -539,6 +541,10 @@ export default function Dashboard() {
 
           {activeTab === 'contracts' && (
             <ContractList />
+          )}
+
+          {activeTab === 'teams' && (
+            <TeamsManagement />
           )}
 
           {activeTab === 'team' && (

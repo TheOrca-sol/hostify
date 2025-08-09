@@ -32,7 +32,7 @@ def get_contracts():
             joinedload(Contract.reservation).joinedload(Reservation.property),
             joinedload(Contract.template)
         ).filter(
-            Property.user_id == user['id']
+            Property.user_id == user.id
         ).order_by(Contract.created_at.desc()).all()
 
         return jsonify({
@@ -55,7 +55,7 @@ def get_pending_contracts():
         contracts = Contract.query.join(Guest).join(Reservation).join(Property).options(
             joinedload(Contract.guest).joinedload(Guest.reservation).joinedload(Reservation.property)
         ).filter(
-            Property.user_id == user['id'],
+            Property.user_id == user.id,
             Contract.contract_status == 'generated'
         ).all()
 
@@ -87,7 +87,7 @@ def get_contract(contract_id):
             return jsonify({'success': False, 'error': 'Contract not found'}), 404
 
         # Verify ownership
-        if str(contract.guest.reservation.property.user_id) != user['id']:
+        if str(contract.guest.reservation.property.user_id) != user.id:
             return jsonify({'success': False, 'error': 'Access denied'}), 403
 
         return jsonify({'success': True, 'contract': contract.to_dict()})
@@ -272,7 +272,7 @@ def download_contract(contract_id):
             return jsonify({'error': 'Contract not found'}), 404
 
         # Verify ownership immediately
-        if str(contract.guest.reservation.property.user_id) != user['id']:
+        if str(contract.guest.reservation.property.user_id) != user.id:
             return jsonify({'error': 'Access denied'}), 403
 
         # Check if contract is signed
@@ -334,7 +334,7 @@ def regenerate_contract_pdf(contract_id):
             return jsonify({'error': 'Contract not found'}), 404
             
         # Verify ownership
-        if str(contract.guest.reservation.property.user_id) != user['id']:
+        if str(contract.guest.reservation.property.user_id) != user.id:
             return jsonify({'error': 'Access denied'}), 403
             
         # Check if contract is signed
@@ -379,7 +379,7 @@ def generate_contract_and_schedule_sms(guest_id):
         if not guest.reservation or not guest.reservation.property:
             return jsonify({'success': False, 'error': 'Invalid guest data'}), 400
 
-        if str(guest.reservation.property.user_id) != user['id']:
+        if str(guest.reservation.property.user_id) != user.id:
             return jsonify({'success': False, 'error': 'Access denied'}), 403
 
         # Check if property has a contract template
@@ -422,7 +422,7 @@ def generate_contract_and_schedule_sms(guest_id):
 
         # Create a message template for the contract
         template = MessageTemplate(
-            user_id=user['id'],
+            user_id=user.id,
             name=f"Contract for {guest.full_name}",
             type='contract',
             subject='Your rental contract',

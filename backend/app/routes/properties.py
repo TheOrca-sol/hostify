@@ -49,11 +49,11 @@ def create_property_route():
                 }), 409
 
         # Create property
-        property_id = create_property(user['id'], **property_data)
+        property_id = create_property(user.id, **property_data)
         
         if property_id:
             # Get the complete property object to return
-            created_property = get_property(property_id, user['id'])
+            created_property = get_property(property_id, user.id)
             return jsonify({
                 'success': True,
                 'message': 'Property created successfully',
@@ -94,8 +94,8 @@ def get_properties():
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
         # Get all properties (owned + assigned) using new team management system
-        user_properties_data = get_user_properties(user['id'])
-        logger.debug(f"Found {len(user_properties_data)} properties for user {user['id']}")
+        user_properties_data = get_user_properties(user.id)
+        logger.debug(f"Found {len(user_properties_data)} properties for user {user.id}")
         
         # Format the response to include relationship info
         properties = []
@@ -132,7 +132,7 @@ def get_property_route(property_id):
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
         # Get property
-        property_data = get_property(property_id, user['id'])
+        property_data = get_property(property_id, user.id)
         if not property_data:
             return jsonify({'success': False, 'error': 'Property not found'}), 404
         
@@ -165,7 +165,7 @@ def update_property_route(property_id):
             return jsonify({'success': False, 'error': 'No update data provided'}), 400
         
         # Update property
-        success = update_property(property_id, user['id'], update_data)
+        success = update_property(property_id, user.id, update_data)
         
         if success:
             return jsonify({
@@ -194,7 +194,7 @@ def get_property_reservations_route(property_id):
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
         # Get property reservations
-        reservations = get_property_reservations(property_id, user['id'])
+        reservations = get_property_reservations(property_id, user.id)
         
         return jsonify({
             'success': True,
@@ -221,7 +221,7 @@ def delete_property_route(property_id):
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
         # Delete property
-        success = delete_property(property_id, user['id'])
+        success = delete_property(property_id, user.id)
         
         if success:
             return jsonify({

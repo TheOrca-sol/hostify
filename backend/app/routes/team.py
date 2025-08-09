@@ -58,7 +58,7 @@ def invite_team_member_route(property_id):
         if invitation_method == 'sms':
             from ..utils.team_management import invite_team_member_sms
             result = invite_team_member_sms(
-                inviter_user_id=user['id'],
+                inviter_user_id=user.id,
                 property_id=property_id,
                 invited_phone=invited_phone,
                 role=role,
@@ -67,7 +67,7 @@ def invite_team_member_route(property_id):
             contact_info = invited_phone
         else:
             result = invite_team_member(
-                inviter_user_id=user['id'],
+                inviter_user_id=user.id,
                 property_id=property_id,
                 invited_email=invited_email,
                 role=role,
@@ -103,7 +103,7 @@ def get_team_members(property_id):
             return jsonify({'success': False, 'error': 'User not found'}), 404
 
         # Get team members
-        result = get_property_team_members(property_id, user['id'])
+        result = get_property_team_members(property_id, user.id)
         
         if result['success']:
             return jsonify(result)
@@ -128,7 +128,7 @@ def remove_team_member_route(property_id, member_user_id):
 
         # Remove team member
         result = remove_team_member(
-            remover_user_id=user['id'],
+            remover_user_id=user.id,
             property_id=property_id,
             member_user_id=member_user_id
         )
@@ -155,7 +155,7 @@ def accept_invitation(invitation_token):
             return jsonify({'success': False, 'error': 'User not found'}), 404
 
         # Accept invitation
-        result = accept_team_invitation(invitation_token, user['id'])
+        result = accept_team_invitation(invitation_token, user.id)
 
         if result['success']:
             return jsonify({
@@ -226,7 +226,7 @@ def get_my_invitations():
 
         # Get pending invitations for this user's email
         invitations = TeamInvitation.query.filter_by(
-            invited_email=user['email'],
+            invited_email=user.email,
             status='pending'
         ).all()
 

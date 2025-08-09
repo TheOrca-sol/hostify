@@ -41,7 +41,7 @@ def serve_upload(filename):
         guest = (db.session.query(Guest)
                  .join(Reservation)
                  .join(Property)
-                 .filter(Guest.id == guest_id, Property.user_id == user['id'])
+                 .filter(Guest.id == guest_id, Property.user_id == user.id)
                  .first())
 
         if not guest:
@@ -88,7 +88,7 @@ def upload_file():
         
         # Save file
         filename = secure_filename(file.filename)
-        upload_folder = os.path.join(os.getcwd(), 'uploads', user['id'])
+        upload_folder = os.path.join(os.getcwd(), 'uploads', user.id)
         os.makedirs(upload_folder, exist_ok=True)
         file_path = os.path.join(upload_folder, filename)
         file.save(file_path)

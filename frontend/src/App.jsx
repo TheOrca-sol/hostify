@@ -11,6 +11,7 @@ import ContractTemplates from './pages/ContractTemplates'
 import MessageTemplates from './pages/MessageTemplates'
 import ContractSigning from './components/ContractSigning'
 import InvitationAcceptance from './pages/InvitationAcceptance'
+import TeamDetails from './pages/TeamDetails'
 
 // Protected route wrapper
 const ProtectedRoute = ({ children, allowProfileSetup = false }) => {
@@ -82,6 +83,13 @@ function App() {
               </ProtectedRoute>
             } />
 
+            <Route path="/teams/:teamId" element={
+              <ProtectedRoute>
+                <Navbar />
+                <TeamDetails />
+              </ProtectedRoute>
+            } />
+            
             {/* Contract Routes */}
             <Route path="/contracts/:contractId" element={
               <ProtectedRoute>

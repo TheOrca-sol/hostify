@@ -978,7 +978,261 @@ export const api = {
     }
   },
 
-  // Team Management
+  // Enhanced Multi-Team Management
+  async createTeam(teamData) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/teams`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(teamData)
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create team');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating team:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getTeams() {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/teams`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch teams');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting teams:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async updateTeam(teamId, updateData) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/teams/${teamId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updateData)
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update team');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating team:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async deleteTeam(teamId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/teams/${teamId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete team');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error deleting team:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async inviteTeamMemberNew(teamId, memberData) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/teams/${teamId}/invite`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(memberData)
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to invite team member');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error inviting team member:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getTeamMembers(teamId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/teams/${teamId}/members`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch team members');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting team members:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async removeTeamMemberNew(teamId, memberId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/teams/${teamId}/members/${memberId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to remove team member');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error removing team member:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getTeamProperties(teamId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/teams/${teamId}/properties`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch team properties');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting team properties:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async assignPropertyToTeam(teamId, propertyId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/teams/${teamId}/properties/${propertyId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to assign property to team');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error assigning property to team:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getTeamPerformance(teamId, dateFrom = null, dateTo = null) {
+    try {
+      const token = await this.getAuthToken();
+      let url = `${API_BASE_URL}/teams/${teamId}/performance`;
+      
+      const params = new URLSearchParams();
+      if (dateFrom) params.append('date_from', dateFrom);
+      if (dateTo) params.append('date_to', dateTo);
+      
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch team performance');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting team performance:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getOrganizationPerformanceComparison() {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/teams/performance/comparison`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch performance comparison');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting performance comparison:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Legacy Team Management (keeping for backward compatibility)
   async inviteTeamMember(propertyId, memberData) {
     try {
       const token = await this.getAuthToken();

@@ -46,7 +46,7 @@ def get_templates():
         property_id = request.args.get('property_id')
         manual_only = request.args.get('manual', 'false').lower() == 'true'
         
-        query = MessageTemplate.query.filter_by(user_id=user['id'])
+        query = MessageTemplate.query.filter_by(user_id=user.id)
         
         if property_id:
             query = query.filter(
@@ -87,7 +87,7 @@ def create_template():
         
         # Create template
         template = MessageTemplate(
-            user_id=user['id'],  # Use the database UUID
+            user_id=user.id,  # Use the database UUID
             property_id=uuid.UUID(data['property_id']) if data.get('property_id') else None,
             name=data['name'],
             template_type=data['template_type'],
@@ -120,7 +120,7 @@ def update_template(template_id):
 
         template = MessageTemplate.query.filter_by(
             id=uuid.UUID(template_id),
-            user_id=user['id']
+            user_id=user.id
         ).first()
         
         if not template:
@@ -153,7 +153,7 @@ def delete_template(template_id):
 
         template = MessageTemplate.query.filter_by(
             id=uuid.UUID(template_id),
-            user_id=user['id']
+            user_id=user.id
         ).first()
         
         if not template:
@@ -185,7 +185,7 @@ def get_scheduled_messages():
             db.joinedload(ScheduledMessage.template),
             db.joinedload(ScheduledMessage.guest),
             db.joinedload(ScheduledMessage.reservation).joinedload(Reservation.property)
-        ).filter(Property.user_id == user['id'])
+        ).filter(Property.user_id == user.id)
 
         # Filter by reservation if provided
         if reservation_id:
@@ -273,12 +273,12 @@ def send_manual_message():
             return jsonify({'success': False, 'error': 'template_id and reservation_id are required'}), 400
 
         # Fetch the template and reservation to ensure they exist and belong to the user
-        template = MessageTemplate.query.filter_by(id=uuid.UUID(template_id), user_id=user['id']).first()
+        template = MessageTemplate.query.filter_by(id=uuid.UUID(template_id), user_id=user.id).first()
         if not template:
             return jsonify({'success': False, 'error': 'Template not found'}), 404
 
         reservation = Reservation.query.get(uuid.UUID(reservation_id))
-        if not reservation or str(reservation.property.user_id) != user['id']:
+        if not reservation or str(reservation.property.user_id) != user.id:
             return jsonify({'success': False, 'error': 'Reservation not found'}), 404
         
         guest = reservation.guests[0] if reservation.guests else None

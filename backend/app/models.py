@@ -48,6 +48,7 @@ class Property(db.Model):
     
     id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
     user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
+    team_id = db.Column(UUID(as_uuid=True), db.ForeignKey('teams.id'), nullable=True)  # Team that manages this property
     name = db.Column(db.Text, nullable=False)
     address = db.Column(db.Text, nullable=True)
     ical_url = db.Column(db.Text, nullable=True)
@@ -58,6 +59,7 @@ class Property(db.Model):
     auto_messaging = db.Column(db.Boolean, server_default=text('true')) # Auto-send messages
     last_sync = db.Column(db.DateTime(timezone=True), nullable=True)
     settings = db.Column(JSON, nullable=True)  # Property-specific settings
+    is_active = db.Column(db.Boolean, server_default=text('true'))  # For soft delete
     created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
     
     # Relationships
@@ -68,6 +70,7 @@ class Property(db.Model):
         return {
             'id': str(self.id),
             'user_id': str(self.user_id),
+            'team_id': str(self.team_id) if self.team_id else None,
             'name': self.name,
             'address': self.address,
             'ical_url': self.ical_url,
@@ -78,7 +81,10 @@ class Property(db.Model):
             'auto_messaging': self.auto_messaging,
             'last_sync': self.last_sync.isoformat() if self.last_sync else None,
             'settings': self.settings,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            # Include team information
+            'team_name': self.team.name if self.team else None,
+            'team_color': self.team.color if self.team else None
         }
 
 class Reservation(db.Model):
@@ -596,3 +602,142 @@ class PhoneVerification(db.Model):
     def can_attempt(self):
         """Check if more attempts are allowed (max 3)"""
         return self.attempts < 3 and not self.is_expired() 
+
+class Team(db.Model):
+    """Team model for organizing property management"""
+    __tablename__ = 'teams'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    organization_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
+    name = db.Column(db.Text, nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    color = db.Column(db.Text, nullable=True)  # Hex color for UI
+    settings = db.Column(JSON, nullable=True)
+    is_active = db.Column(db.Boolean, server_default=text('true'))
+    created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    updated_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    
+    # Relationships
+    organization = db.relationship('User', backref='teams')
+    properties = db.relationship('Property', backref='team')
+    team_members = db.relationship('TeamMember', backref='team', cascade='all, delete-orphan')
+    team_invitations = db.relationship('TeamInvitationNew', backref='team', cascade='all, delete-orphan')
+    performance_records = db.relationship('TeamPerformance', backref='team', cascade='all, delete-orphan')
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'organization_id': str(self.organization_id),
+            'name': self.name,
+            'description': self.description,
+            'color': self.color,
+            'settings': self.settings,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            # Include related data
+            'organization_name': self.organization.name if self.organization else None,
+            'properties_count': len([p for p in self.properties if p.is_active]) if self.properties else 0,
+            'members_count': len([m for m in self.team_members if m.is_active]) if self.team_members else 0
+        }
+
+class TeamMember(db.Model):
+    """Team members with role-based access to team resources"""
+    __tablename__ = 'team_members'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    team_id = db.Column(UUID(as_uuid=True), db.ForeignKey('teams.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
+    role = db.Column(db.Text, nullable=False)  # 'manager', 'cleaner', 'maintenance', 'assistant'
+    permissions = db.Column(JSON, nullable=True)
+    invited_by_user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
+    invited_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    accepted_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    is_active = db.Column(db.Boolean, server_default=text('true'))
+    created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref='team_memberships_new')
+    invited_by = db.relationship('User', foreign_keys=[invited_by_user_id])
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'team_id': str(self.team_id),
+            'user_id': str(self.user_id),
+            'role': self.role,
+            'permissions': self.permissions,
+            'invited_by_user_id': str(self.invited_by_user_id),
+            'invited_at': self.invited_at.isoformat() if self.invited_at else None,
+            'accepted_at': self.accepted_at.isoformat() if self.accepted_at else None,
+            'is_active': self.is_active,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            # Include related data
+            'user_name': self.user.name if self.user else None,
+            'user_email': self.user.email if self.user else None,
+            'user_phone': self.user.phone if self.user else None,
+            'team_name': self.team.name if self.team else None,
+            'invited_by_name': self.invited_by.name if self.invited_by else None
+        }
+
+class TeamInvitationNew(db.Model):
+    """Team invitations for the new team-based system"""
+    __tablename__ = 'team_invitations_new'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    team_id = db.Column(UUID(as_uuid=True), db.ForeignKey('teams.id', ondelete='CASCADE'), nullable=False)
+    inviter_user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)
+    invited_email = db.Column(db.Text, nullable=True)
+    invited_phone = db.Column(db.Text, nullable=True)
+    invitation_method = db.Column(db.Text, nullable=False, server_default=text("'email'"))
+    role = db.Column(db.Text, nullable=False)
+    permissions = db.Column(JSON, nullable=True)
+    invitation_token = db.Column(db.Text, unique=True, nullable=False)
+    status = db.Column(db.Text, server_default=text("'pending'"))
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    accepted_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    
+    # Relationships
+    inviter = db.relationship('User', backref='sent_team_invitations_new')
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'team_id': str(self.team_id),
+            'inviter_user_id': str(self.inviter_user_id),
+            'invited_email': self.invited_email,
+            'invited_phone': self.invited_phone,
+            'invitation_method': self.invitation_method,
+            'role': self.role,
+            'permissions': self.permissions,
+            'invitation_token': self.invitation_token,
+            'status': self.status,
+            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
+            'accepted_at': self.accepted_at.isoformat() if self.accepted_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            # Include related data
+            'team_name': self.team.name if self.team else None,
+            'inviter_name': self.inviter.name if self.inviter else None
+        }
+
+class TeamPerformance(db.Model):
+    """Team performance metrics for analytics"""
+    __tablename__ = 'team_performance'
+    
+    id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    team_id = db.Column(UUID(as_uuid=True), db.ForeignKey('teams.id', ondelete='CASCADE'), nullable=False)
+    date = db.Column(db.Date, nullable=False)
+    metrics = db.Column(JSON, nullable=False)  # All performance metrics as JSON
+    created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'team_id': str(self.team_id),
+            'date': self.date.isoformat() if self.date else None,
+            'metrics': self.metrics,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            # Include related data
+            'team_name': self.team.name if self.team else None
+        }

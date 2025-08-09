@@ -15,14 +15,14 @@ def get_dashboard_stats():
     Get dashboard statistics for the authenticated user.
     """
     try:
+        # Get user record
         user = get_user_by_firebase_uid(g.user_id)
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
-
-        stats = get_user_dashboard_stats(user['id'])
-        if stats is None:
-            return jsonify({'success': False, 'error': 'Failed to retrieve dashboard stats'}), 500
-
+        
+        # Get stats from the database
+        stats = get_user_dashboard_stats(user.id)
+        
         return jsonify({
             'success': True,
             'stats': stats
@@ -41,7 +41,7 @@ def get_occupancy_data():
     Get occupancy data for a specific period
     """
     try:
-        # Get the current user using the same pattern as stats endpoint
+        # Get user record
         user = get_user_by_firebase_uid(g.user_id)
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
@@ -58,7 +58,7 @@ def get_occupancy_data():
         from ..utils.database import calculate_occupancy_rates
         from datetime import datetime, timezone
         
-        occupancy_data = calculate_occupancy_rates(user['id'], datetime.now(timezone.utc), period)
+        occupancy_data = calculate_occupancy_rates(user.id, datetime.now(timezone.utc), period)
         
         return jsonify({
             'success': True,

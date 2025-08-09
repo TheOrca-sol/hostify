@@ -40,7 +40,7 @@ def create_reservation_route():
                 return jsonify({'success': False, 'error': f'Missing required field: {field}'}), 400
         
         # Verify property ownership
-        property_data = get_property(reservation_data['property_id'], user['id'])
+        property_data = get_property(reservation_data['property_id'], user.id)
         if not property_data:
             return jsonify({'success': False, 'error': 'Property not found or access denied'}), 404
         
@@ -92,7 +92,7 @@ def get_reservations():
 
         # Get reservations from database
         result = get_user_reservations(
-            user_id=user['id'],
+            user_id=user.id,
             page=page,
             per_page=per_page,
             search_query=search_query,
@@ -128,7 +128,7 @@ def get_reservation(reservation_id):
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
         # Get all user reservations and find the requested one
-        reservations = get_user_reservations(user['id'])
+        reservations = get_user_reservations(user.id)
         reservation = next((r for r in reservations if r['id'] == reservation_id), None)
         
         if not reservation:
@@ -165,7 +165,7 @@ def get_upcoming_reservations():
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
         # Get upcoming reservations
-        reservations = get_user_reservations(user['id'], filter_type='upcoming')
+        reservations = get_user_reservations(user.id, filter_type='upcoming')
         
         return jsonify({
             'success': True,
@@ -193,7 +193,7 @@ def get_current_reservations():
             return jsonify({'success': False, 'error': 'User not found'}), 404
         
         # Get current reservations
-        reservations = get_user_reservations(user['id'], filter_type='current')
+        reservations = get_user_reservations(user.id, filter_type='current')
         
         return jsonify({
             'success': True,

@@ -151,12 +151,3 @@ def get_or_create_user(firebase_user):
         print(f"Error in get_or_create_user: {str(e)}")
         db.session.rollback()
         return None
-
-def get_user_by_firebase_uid(firebase_uid):
-    """Get user record by Firebase UID"""
-    try:
-        user = User.query.filter_by(firebase_uid=firebase_uid).first()
-        return user.to_dict() if user else None
-    except Exception as e:
-        print(f"Error in get_user_by_firebase_uid: {str(e)}")
-        return None

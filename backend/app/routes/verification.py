@@ -26,7 +26,7 @@ def send_verification_link(guest_id):
             return jsonify({'success': False, 'error': 'User not found'}), 404
 
         guest = Guest.query.get(guest_id)
-        if not guest or str(guest.reservation.property.user_id) != user['id']:
+        if not guest or str(guest.reservation.property.user_id) != user.id:
             return jsonify({'success': False, 'error': 'Guest not found or access denied'}), 404
 
         if not guest.phone:
@@ -51,7 +51,7 @@ def send_verification_link(guest_id):
         verification_url = f"http://localhost:3000/verify/{token}"
         
         # Fetch the verification template from the database
-        template = MessageTemplate.query.filter_by(user_id=user['id'], template_type='verification_request').first()
+        template = MessageTemplate.query.filter_by(user_id=user.id, template_type='verification_request').first()
         
         if template:
             message_body = template.content.replace('{{guest_name}}', guest.full_name or 'Guest')
@@ -94,7 +94,7 @@ def verify_guest(guest_id):
         if not guest.reservation or not guest.reservation.property:
             return jsonify({'success': False, 'error': 'Invalid guest data'}), 400
         
-        if str(guest.reservation.property.user_id) != user['id']:
+        if str(guest.reservation.property.user_id) != user.id:
             return jsonify({'success': False, 'error': 'Access denied'}), 403
         
         # Get verification data

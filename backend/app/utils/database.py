@@ -115,7 +115,7 @@ def get_user_by_firebase_uid(firebase_uid):
     """
     try:
         user = User.query.filter_by(firebase_uid=firebase_uid).first()
-        return user.to_dict() if user else None
+        return user if user else None
     
     except Exception as e:
         print(f"Database error: {str(e)}")

@@ -11,17 +11,18 @@ user_bp = Blueprint('user', __name__)
 @user_bp.route('/user/profile', methods=['GET'])
 @require_auth
 def get_user_profile():
-    """Get a user's profile data"""
+    """Get user profile"""
     try:
         user_info = get_user_by_firebase_uid(g.user_id)
-        if not user_info:
-            return jsonify({'success': False, 'error': 'User not found'}), 404
-
-        user = User.query.filter_by(id=user_info['id']).first()
-        if not user:
-            return jsonify({'success': False, 'error': 'User profile not found in database'}), 404
-
-        return jsonify({'success': True, 'profile': user.to_dict()})
+        
+        if user_info:
+            return jsonify({
+                'success': True,
+                'profile': user_info.to_dict()
+            })
+        else:
+            return jsonify({'success': False, 'error': 'User profile not found'}), 404
+    
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
