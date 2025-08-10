@@ -275,7 +275,7 @@ def get_recent_activity_route():
             activities.append({
                 'id': f'verification_{guest.id}',
                 'type': 'verification',
-                'title': f'Guest verified: {guest.name}',
+                'title': f'Guest verified: {guest.full_name}',
                 'description': f'Document: {guest.document_type or "ID"}',
                 'timestamp': guest.verified_at,
                 'property_name': guest.reservation.property.name if guest.reservation and guest.reservation.property else 'Unknown Property',
@@ -283,13 +283,69 @@ def get_recent_activity_route():
                 'color': 'green'
             })
 
+        # 7. Property Changes (new properties, updates)
+        recent_property_changes = Property.query.filter(
+            Property.user_id == user.id,
+            Property.created_at >= cutoff_time
+        ).order_by(desc(Property.created_at)).limit(3).all()
+
+        for prop in recent_property_changes:
+            activities.append({
+                'id': f'property_created_{prop.id}',
+                'type': 'property',
+                'title': f'New property added: {prop.name}',
+                'description': f'Address: {prop.address or "No address"}',
+                'timestamp': prop.created_at,
+                'property_name': prop.name,
+                'icon': 'home',
+                'color': 'blue'
+            })
+
+        # 8. Contract Status Changes
+        recent_contract_status_changes = Contract.query.filter(
+            Contract.created_at >= cutoff_time
+        ).join(Reservation).filter(
+            Reservation.property_id.in_(all_property_ids)
+        ).order_by(desc(Contract.created_at)).limit(5).all()
+
+        for contract in recent_contract_status_changes:
+            if contract.contract_status == 'signed':
+                activities.append({
+                    'id': f'contract_signed_{contract.id}',
+                    'type': 'contract_signed',
+                    'title': f'Contract signed: {contract.guest.full_name if contract.guest else "Guest"}',
+                    'description': f'Template: {contract.template.name if contract.template else "Custom"}',
+                    'timestamp': contract.signed_at or contract.created_at,
+                    'property_name': contract.reservation.property.name if contract.reservation and contract.reservation.property else 'Unknown Property',
+                    'icon': 'check-circle',
+                    'color': 'green'
+                })
+
+        # 9. Message Template Changes
+        recent_template_changes = MessageTemplate.query.filter(
+            MessageTemplate.user_id == user.id,
+            MessageTemplate.created_at >= cutoff_time
+        ).order_by(desc(MessageTemplate.created_at)).limit(2).all()
+
+        for template in recent_template_changes:
+            activities.append({
+                'id': f'template_created_{template.id}',
+                'type': 'template',
+                'title': f'Message template created: {template.name}',
+                'description': f'Type: {template.template_type}',
+                'timestamp': template.created_at,
+                'property_name': 'Message Templates',
+                'icon': 'mail',
+                'color': 'purple'
+            })
+
         # Sort all activities by timestamp (most recent first)
         activities.sort(key=lambda x: x['timestamp'], reverse=True)
         
-        # Return top 15 most recent activities
+        # Return top 20 most recent activities
         return jsonify({
             'success': True,
-            'activities': activities[:15]
+            'activities': activities[:20]
         })
 
     except Exception as e:

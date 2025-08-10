@@ -112,7 +112,8 @@ export default function Dashboard() {
     { id: 'guests', name: 'Guests', icon: Users },
     { id: 'communications', name: 'Communications', icon: Mail },
     { id: 'contracts', name: 'Contracts', icon: FileText },
-    { id: 'teams', name: 'Teams', icon: UserCheck }
+    { id: 'teams', name: 'Teams', icon: UserCheck },
+    { id: 'activity', name: 'Activity', icon: Activity }
   ]
 
   if (loading) {
@@ -269,7 +270,15 @@ export default function Dashboard() {
           {activeTab === 'overview' && (
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg leading-6 font-medium text-gray-900">Recent Activity</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">Recent Activity</h3>
+                  <button 
+                    onClick={() => setActiveTab('activity')}
+                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    View All →
+                  </button>
+                </div>
                 <div className="mt-4">
                   {recentActivity.length === 0 ? (
                     <p className="text-gray-500 text-sm">No recent activity</p>
@@ -596,6 +605,96 @@ export default function Dashboard() {
 
           {activeTab === 'teams' && (
             <TeamsManagement />
+          )}
+
+          {activeTab === 'activity' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">All Activities</h3>
+                <div className="bg-white shadow rounded-lg">
+                  <div className="p-6">
+                    {recentActivity.length === 0 ? (
+                      <p className="text-gray-500 text-sm">No activities found</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {recentActivity.map((activity, index) => {
+                          const getActivityIcon = () => {
+                            switch (activity.icon) {
+                              case 'calendar':
+                                return <Calendar className="h-4 w-4" />;
+                              case 'refresh-cw':
+                                return <RefreshCw className="h-4 w-4" />;
+                              case 'mail':
+                                return <Mail className="h-4 w-4" />;
+                              case 'file-text':
+                                return <FileText className="h-4 w-4" />;
+                              case 'user-plus':
+                                return <UserPlus className="h-4 w-4" />;
+                              case 'check-circle':
+                                return <CheckCircle className="h-4 w-4" />;
+                              case 'home':
+                                return <Home className="h-4 w-4" />;
+                              default:
+                                return <Activity className="h-4 w-4" />;
+                            }
+                          };
+
+                          const getActivityColor = () => {
+                            switch (activity.color) {
+                              case 'blue':
+                                return 'bg-blue-100 text-blue-600';
+                              case 'green':
+                                return 'bg-green-100 text-green-600';
+                              case 'purple':
+                                return 'bg-purple-100 text-purple-600';
+                              case 'orange':
+                                return 'bg-orange-100 text-orange-600';
+                              case 'indigo':
+                                return 'bg-indigo-100 text-indigo-600';
+                              default:
+                                return 'bg-gray-100 text-gray-600';
+                            }
+                          };
+
+                          const formatTimestamp = (timestamp) => {
+                            const date = new Date(timestamp);
+                            const now = new Date();
+                            const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
+                            
+                            if (diffInHours < 1) {
+                              return 'Just now';
+                            } else if (diffInHours < 24) {
+                              return `${diffInHours}h ago`;
+                            } else {
+                              const diffInDays = Math.floor(diffInHours / 24);
+                              return `${diffInDays}d ago`;
+                            }
+                          };
+
+                          return (
+                            <div key={activity.id || index} className="flex items-center space-x-4 p-4 rounded-lg hover:bg-gray-50 transition-colors border border-gray-100">
+                              <div className="flex-shrink-0">
+                                <div className={`h-10 w-10 rounded-full flex items-center justify-center ${getActivityColor()}`}>
+                                  {getActivityIcon()}
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                                <p className="text-xs text-gray-500">{activity.description}</p>
+                                <p className="text-xs text-gray-400">{activity.property_name}</p>
+                              </div>
+                              <div className="flex-shrink-0 text-xs text-gray-500">
+                                {formatTimestamp(activity.timestamp)}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
 
 
