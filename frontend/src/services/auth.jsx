@@ -165,7 +165,7 @@ export function AuthProvider({ children }) {
       
       const result = await api.setupUserProfile(setupData)
       if (result.success) {
-        setUserProfile(result.user)
+        setUserProfile(result.user || result.profile)
         setNeedsProfileSetup(false)
         return result
       } else {
@@ -182,16 +182,12 @@ export function AuthProvider({ children }) {
   // Load user profile
   const loadUserProfile = async () => {
     try {
-      console.log('loadUserProfile: Starting to load profile...')
       setProfileLoading(true)
       const { api } = await import('./api')
       const result = await api.getUserProfile()
       
-      console.log('loadUserProfile: API result:', result)
-      
       if (result.success) {
-        console.log('loadUserProfile: Setting user profile:', result.user)
-        setUserProfile(result.user)
+        setUserProfile(result.profile)
         setNeedsProfileSetup(false)
       } else {
         // User exists in Firebase but not in our database - needs profile setup

@@ -17,15 +17,9 @@ export default function Profile() {
   })
   const [isEditing, setIsEditing] = useState(false)
 
-  // Debug logging
-  console.log('Profile component - user:', user)
-  console.log('Profile component - userProfile:', userProfile)
-  console.log('Profile component - authLoading:', authLoading)
-
   // Load profile if not already loaded
   useEffect(() => {
     if (user && !userProfile && !authLoading) {
-      console.log('Loading user profile...')
       setProfileError(null)
       refreshUserProfile().catch(error => {
         console.error('Failed to load profile:', error)
@@ -117,9 +111,6 @@ export default function Profile() {
             <>
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
               <p className="text-gray-600">Loading profile...</p>
-              <p className="text-sm text-gray-500 mt-2">
-                Debug: userProfile is null/undefined
-              </p>
             </>
           )}
         </div>
