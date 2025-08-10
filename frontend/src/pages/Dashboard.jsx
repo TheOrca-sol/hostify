@@ -34,6 +34,13 @@ export default function Dashboard() {
     loadDashboardData()
   }, [])
 
+  // Load initial occupancy data
+  useEffect(() => {
+    if (!loading) {
+      loadOccupancyData(occupancyPeriod);
+    }
+  }, [loading]);
+
   const loadDashboardData = async () => {
     try {
       setLoading(true);
@@ -78,21 +85,37 @@ export default function Dashboard() {
         setOccupancyData(result.occupancy);
       } else {
         console.error('Failed to load occupancy data:', result.error);
-        // Fallback to existing data if API call fails
+        // Fallback to basic stats data if API call fails
         if (stats.occupancy) {
           setOccupancyData({
-            ...stats.occupancy,
-            period: period
+            rate: stats.occupancy.rate,
+            period: period,
+            occupiedDays: stats.occupancy.occupiedDays,
+            totalDays: stats.occupancy.totalDays,
+            overall: stats.occupancy.rate,
+            currentPeriod: {
+              rate: stats.occupancy.rate,
+              bookedDays: stats.occupancy.occupiedDays,
+              totalDays: stats.occupancy.totalDays
+            }
           });
         }
       }
     } catch (error) {
       console.error('Error loading occupancy data:', error);
-      // Fallback to existing data on error
+      // Fallback to basic stats data on error
       if (stats.occupancy) {
         setOccupancyData({
-          ...stats.occupancy,
-          period: period
+          rate: stats.occupancy.rate,
+          period: period,
+          occupiedDays: stats.occupancy.occupiedDays,
+          totalDays: stats.occupancy.totalDays,
+          overall: stats.occupancy.rate,
+          currentPeriod: {
+            rate: stats.occupancy.rate,
+            bookedDays: stats.occupancy.occupiedDays,
+            totalDays: stats.occupancy.totalDays
+          }
         });
       }
     }
@@ -100,10 +123,8 @@ export default function Dashboard() {
 
   // Load occupancy data when period changes
   useEffect(() => {
-    if (stats.occupancy) {
-      loadOccupancyData(occupancyPeriod);
-    }
-  }, [occupancyPeriod, stats.occupancy]);
+    loadOccupancyData(occupancyPeriod);
+  }, [occupancyPeriod]);
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: BarChart },
