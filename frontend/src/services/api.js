@@ -1257,7 +1257,7 @@ export const api = {
     }
   },
 
-  async getTeamMembers(propertyId) {
+  async getPropertyTeamMembers(propertyId) {
     try {
       const token = await this.getAuthToken();
       const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/team`, {

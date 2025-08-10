@@ -55,7 +55,7 @@ export default function TeamManagement({ property, canManageTeam = true }) {
   const loadTeamMembers = async () => {
     try {
       setLoading(true)
-      const result = await api.getTeamMembers(property.id)
+      const result = await api.getPropertyTeamMembers(property.id)
       if (result.success) {
         setTeamMembers(result.team_members || [])
       } else {

@@ -94,7 +94,7 @@ export default function TeamManagement() {
       const teamDataTemp = {}
       
       for (const property of propertiesToLoad) {
-        const result = await api.getTeamMembers(property.id)
+        const result = await api.getPropertyTeamMembers(property.id)
         if (result.success) {
           teamDataTemp[property.id] = result.team_members || []
         }
@@ -112,7 +112,7 @@ export default function TeamManagement() {
 
   const loadTeamMembers = async (propertyId) => {
     try {
-      const result = await api.getTeamMembers(propertyId)
+      const result = await api.getPropertyTeamMembers(propertyId)
       if (result.success) {
         setTeamData({ [propertyId]: result.team_members || [] })
       }
