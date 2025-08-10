@@ -468,6 +468,7 @@ class SyncLog(db.Model):
     errors = db.Column(JSON, nullable=True)  # Error details if any
     started_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
     completed_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
     
     def to_dict(self):
         return {
@@ -478,7 +479,8 @@ class SyncLog(db.Model):
             'events_processed': self.events_processed,
             'errors': self.errors,
             'started_at': self.started_at.isoformat() if self.started_at else None,
-            'completed_at': self.completed_at.isoformat() if self.completed_at else None
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None
         }
 
 class PropertyTeamMember(db.Model):

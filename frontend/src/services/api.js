@@ -829,6 +829,21 @@ export const api = {
     }
   },
 
+  async getRecentActivity() {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/dashboard/recent-activity`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting recent activity:', error);
+      return { success: false, error: 'Failed to fetch recent activity' };
+    }
+  },
+
   async getOccupancyData(period = 'month') {
     try {
       const token = await this.getAuthToken();

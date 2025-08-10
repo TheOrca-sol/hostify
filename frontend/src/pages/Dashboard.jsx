@@ -10,7 +10,7 @@ import ContractList from '../components/ContractList'
 import TeamsManagement from './TeamsManagement'
 import OccupancyCalendar from '../components/OccupancyCalendar'
 import PropertyOccupancyChart from '../components/PropertyOccupancyChart'
-import { Home, Calendar, Users, Mail, BarChart, FileText, UserCheck } from 'lucide-react'
+import { Home, Calendar, Users, Mail, BarChart, FileText, UserCheck, RefreshCw, CheckCircle, UserPlus, Activity } from 'lucide-react'
 
 export default function Dashboard() {
   const { userProfile } = useAuth()
@@ -55,16 +55,14 @@ export default function Dashboard() {
       const allReservationsResult = await api.getReservations({ page: 1, per_page: 100 });
       if (allReservationsResult.success) {
         setReservations(allReservationsResult.reservations);
-        
-        // Simplified recent activity (can be enhanced later)
-        setRecentActivity(
-          allReservationsResult.reservations.slice(0, 5).map(r => ({
-            type: 'reservation',
-            title: `New reservation: ${r.guest_name_partial || 'Guest'}`,
-            timestamp: r.created_at,
-            property: r.property?.name || 'Unknown Property'
-          }))
-        );
+      }
+
+      // Load recent activity from multiple sources
+      const activityResult = await api.getRecentActivity();
+      if (activityResult.success) {
+        setRecentActivity(activityResult.activities);
+      } else {
+        console.error('Failed to load recent activity:', activityResult.error);
       }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -277,24 +275,78 @@ export default function Dashboard() {
                     <p className="text-gray-500 text-sm">No recent activity</p>
                   ) : (
                     <div className="space-y-3">
-                      {recentActivity.map((activity, index) => (
-                        <div key={index} className="flex items-center space-x-3">
-                          <div className="flex-shrink-0">
-                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                              <svg className="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
+                      {recentActivity.map((activity, index) => {
+                        const getActivityIcon = () => {
+                          switch (activity.icon) {
+                            case 'calendar':
+                              return <Calendar className="h-4 w-4" />;
+                            case 'refresh-cw':
+                              return <RefreshCw className="h-4 w-4" />;
+                            case 'mail':
+                              return <Mail className="h-4 w-4" />;
+                            case 'file-text':
+                              return <FileText className="h-4 w-4" />;
+                            case 'user-plus':
+                              return <UserPlus className="h-4 w-4" />;
+                            case 'check-circle':
+                              return <CheckCircle className="h-4 w-4" />;
+                            case 'home':
+                              return <Home className="h-4 w-4" />;
+                            default:
+                              return <Activity className="h-4 w-4" />;
+                          }
+                        };
+
+                        const getActivityColor = () => {
+                          switch (activity.color) {
+                            case 'blue':
+                              return 'bg-blue-100 text-blue-600';
+                            case 'green':
+                              return 'bg-green-100 text-green-600';
+                            case 'purple':
+                              return 'bg-purple-100 text-purple-600';
+                            case 'orange':
+                              return 'bg-orange-100 text-orange-600';
+                            case 'indigo':
+                              return 'bg-indigo-100 text-indigo-600';
+                            default:
+                              return 'bg-gray-100 text-gray-600';
+                          }
+                        };
+
+                        const formatTimestamp = (timestamp) => {
+                          const date = new Date(timestamp);
+                          const now = new Date();
+                          const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
+                          
+                          if (diffInHours < 1) {
+                            return 'Just now';
+                          } else if (diffInHours < 24) {
+                            return `${diffInHours}h ago`;
+                          } else {
+                            const diffInDays = Math.floor(diffInHours / 24);
+                            return `${diffInDays}d ago`;
+                          }
+                        };
+
+                        return (
+                          <div key={activity.id || index} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                            <div className="flex-shrink-0">
+                              <div className={`h-8 w-8 rounded-full flex items-center justify-center ${getActivityColor()}`}>
+                                {getActivityIcon()}
+                              </div>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900">{activity.title}</p>
+                              <p className="text-xs text-gray-500">{activity.description}</p>
+                              <p className="text-xs text-gray-400">{activity.property_name}</p>
+                            </div>
+                            <div className="flex-shrink-0 text-xs text-gray-500">
+                              {formatTimestamp(activity.timestamp)}
                             </div>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-gray-900">{activity.title}</p>
-                            <p className="text-xs text-gray-500">{activity.property}</p>
-                          </div>
-                          <div className="flex-shrink-0 text-xs text-gray-500">
-                            {activity.timestamp && new Date(activity.timestamp).toLocaleDateString()}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
