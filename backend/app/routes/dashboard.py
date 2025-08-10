@@ -6,7 +6,7 @@ from flask import Blueprint, jsonify, g, request
 from flask_cors import cross_origin
 from ..utils.auth import require_auth
 from ..utils.database import get_user_by_firebase_uid
-from ..models import db, Property, Reservation, Guest, SyncLog, ScheduledMessage, Contract, TeamMember, Team
+from ..models import db, Property, Reservation, Guest, SyncLog, ScheduledMessage, Contract, TeamMember, Team, MessageTemplate
 from sqlalchemy import desc, func
 from datetime import datetime, timezone, timedelta
 import json
