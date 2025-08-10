@@ -195,7 +195,7 @@ def get_recent_activity_route():
                 'id': f'message_{message.id}',
                 'type': 'communication',
                 'title': f'Message sent: {message.template.name if message.template else "Custom message"}',
-                'description': f'To: {message.guest.name if message.guest else "Guest"}',
+                'description': f'To: {message.guest.full_name if message.guest else "Guest"}',
                 'timestamp': message.sent_at,
                 'property_name': message.reservation.property.name if message.reservation and message.reservation.property else 'Unknown Property',
                 'icon': 'mail',
@@ -213,7 +213,7 @@ def get_recent_activity_route():
             activities.append({
                 'id': f'contract_{contract.id}',
                 'type': 'contract',
-                'title': f'Contract {contract.status}: {contract.guest.name if contract.guest else "Guest"}',
+                'title': f'Contract {contract.contract_status}: {contract.guest.full_name if contract.guest else "Guest"}',
                 'description': f'Template: {contract.template.name if contract.template else "Custom"}',
                 'timestamp': contract.created_at,
                 'property_name': contract.reservation.property.name if contract.reservation and contract.reservation.property else 'Unknown Property',
@@ -245,8 +245,8 @@ def get_recent_activity_route():
         # Property assignments to teams
         recent_assignments = Property.query.filter(
             Property.team_id.in_(all_team_ids + owned_team_ids),
-            Property.updated_at >= cutoff_time
-        ).order_by(desc(Property.updated_at)).limit(3).all()
+            Property.created_at >= cutoff_time
+        ).order_by(desc(Property.created_at)).limit(3).all()
 
         for prop in recent_assignments:
             if prop.team_id:  # Only if recently assigned to a team
@@ -255,7 +255,7 @@ def get_recent_activity_route():
                     'type': 'team',
                     'title': f'Property assigned to team: {prop.name}',
                     'description': f'Team: {prop.team.name if prop.team else "Unknown"}',
-                    'timestamp': prop.updated_at,
+                    'timestamp': prop.created_at,
                     'property_name': prop.name,
                     'icon': 'home',
                     'color': 'indigo'
