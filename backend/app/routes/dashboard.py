@@ -166,9 +166,9 @@ def get_recent_activity_route():
         # 2. Recent Calendar Syncs
         recent_syncs = SyncLog.query.filter(
             SyncLog.property_id.in_(all_property_ids),
-            SyncLog.created_at >= cutoff_time,
+            SyncLog.started_at >= cutoff_time,
             SyncLog.status == 'success'
-        ).order_by(desc(SyncLog.created_at)).limit(5).all()
+        ).order_by(desc(SyncLog.started_at)).limit(5).all()
 
         for sync in recent_syncs:
             activities.append({
@@ -176,7 +176,7 @@ def get_recent_activity_route():
                 'type': 'sync',
                 'title': f'Calendar synced: {sync.property.name if sync.property else "Unknown Property"}',
                 'description': f'{sync.events_processed} events processed',
-                'timestamp': sync.created_at,
+                'timestamp': sync.started_at,
                 'property_name': sync.property.name if sync.property else 'Unknown Property',
                 'icon': 'refresh-cw',
                 'color': 'green'

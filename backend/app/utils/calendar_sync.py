@@ -31,15 +31,20 @@ def sync_property_calendar(property):
     if not property.ical_url:
         return False
     
-    # Create sync log entry
-    sync_log = SyncLog(
-        property_id=property.id,
-        sync_type='ical',
-        status='in_progress',
-        started_at=datetime.utcnow()
-    )
-    db.session.add(sync_log)
-    db.session.flush()
+    # Create sync log entry (temporarily without created_at until migration)
+    try:
+        sync_log = SyncLog(
+            property_id=property.id,
+            sync_type='ical',
+            status='in_progress',
+            started_at=datetime.utcnow()
+        )
+        db.session.add(sync_log)
+        db.session.flush()
+    except Exception as e:
+        # If created_at column doesn't exist yet, skip sync logging
+        logging.warning(f"Could not create sync log (column may not exist): {str(e)}")
+        sync_log = None
     
     try:
         # Use the centralized iCal parser
@@ -102,10 +107,11 @@ def sync_property_calendar(property):
                 continue
         
         # Update sync log with results
-        sync_log.status = 'success' if not errors else 'partial'
-        sync_log.events_processed = events_processed
-        sync_log.errors = errors if errors else None
-        sync_log.completed_at = datetime.utcnow()
+        if sync_log:
+            sync_log.status = 'success' if not errors else 'partial'
+            sync_log.events_processed = events_processed
+            sync_log.errors = errors if errors else None
+            sync_log.completed_at = datetime.utcnow()
         
         # Commit all changes
         db.session.commit()
@@ -118,10 +124,11 @@ def sync_property_calendar(property):
         
     except Exception as e:
         # Update sync log with error
-        sync_log.status = 'failed'
-        sync_log.errors = [str(e)]
-        sync_log.completed_at = datetime.utcnow()
-        db.session.commit()
+        if sync_log:
+            sync_log.status = 'failed'
+            sync_log.errors = [str(e)]
+            sync_log.completed_at = datetime.utcnow()
+            db.session.commit()
         
         logging.error(f"Error syncing calendar for property {property.id}: {str(e)}")
         return False 
