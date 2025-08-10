@@ -27,11 +27,14 @@ def sync_due_calendars():
         try:
             now = datetime.now(timezone.utc)
             
-            # Get all active properties with calendar URLs
+            # Get all active properties with valid calendar URLs
             properties = Property.query.filter(
                 Property.is_active == True,
                 Property.ical_url.isnot(None),
-                Property.ical_url != ''
+                Property.ical_url != '',
+                Property.ical_url.notlike('https://example.com%'),  # Exclude test URLs
+                Property.name.isnot(None),
+                Property.name != ''
             ).all()
 
             if not properties:
