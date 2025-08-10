@@ -2,7 +2,7 @@
 Dashboard routes for Hostify
 """
 
-from flask import Blueprint, jsonify, g, request
+from flask import Blueprint, jsonify, g, request, current_app
 from flask_cors import cross_origin
 from ..utils.auth import require_auth
 from ..utils.database import get_user_by_firebase_uid
@@ -366,59 +366,17 @@ def get_occupancy_rates_route():
 
         period = request.args.get('period', 'month')
         
-        # Get user's properties
-        properties = Property.query.filter_by(user_id=user.id, is_active=True).all()
-        property_ids = [p.id for p in properties]
-
-        now = datetime.now(timezone.utc)
+        # Calculate occupancy for the specified period
+        from ..utils.database import calculate_occupancy_rates
+        occupancy_data = calculate_occupancy_rates(user.id, datetime.now(timezone.utc), period)
         
-        if period == 'week':
-            start_date = now - timedelta(days=7)
-            end_date = now
-        elif period == 'month':
-            start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            end_date = (start_date + timedelta(days=32)).replace(day=1) - timedelta(seconds=1)
-        elif period == 'quarter':
-            quarter_start_month = ((now.month - 1) // 3) * 3 + 1
-            start_date = now.replace(month=quarter_start_month, day=1, hour=0, minute=0, second=0, microsecond=0)
-            end_date = (start_date + timedelta(days=95)).replace(day=1) - timedelta(seconds=1)
-        else:  # year
-            start_date = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-            end_date = now.replace(month=12, day=31, hour=23, minute=59, second=59, microsecond=999999)
-
-        # Get reservations in the period
-        reservations = Reservation.query.filter(
-            Reservation.property_id.in_(property_ids),
-            Reservation.check_in <= end_date,
-            Reservation.check_out >= start_date
-        ).all()
-
-        # Calculate occupancy
-        total_days = (end_date - start_date).days + 1
-        total_available_days = total_days * len(properties)
-        occupied_days = 0
-
-        for reservation in reservations:
-            overlap_start = max(reservation.check_in, start_date)
-            overlap_end = min(reservation.check_out, end_date)
-            if overlap_end > overlap_start:
-                occupied_days += (overlap_end - overlap_start).days
-
-        occupancy_rate = (occupied_days / total_available_days * 100) if total_available_days > 0 else 0
-
         return jsonify({
             'success': True,
-            'occupancy': {
-                'rate': round(occupancy_rate, 1),
-                'period': period,
-                'occupiedDays': occupied_days,
-                'totalDays': total_available_days,
-                'startDate': start_date.isoformat(),
-                'endDate': end_date.isoformat()
-            }
+            'occupancy': occupancy_data
         })
 
     except Exception as e:
+        current_app.logger.error(f"Error getting occupancy data: {str(e)}")
         return jsonify({
             'success': False,
             'error': f'Failed to get occupancy data: {str(e)}'
