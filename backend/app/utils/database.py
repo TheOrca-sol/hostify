@@ -154,7 +154,7 @@ def get_user_properties(user_id):
     """
     try:
         user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
-        properties = Property.query.filter_by(user_id=user_uuid, is_active=True).order_by(Property.created_at.desc()).all()
+        properties = Property.query.filter_by(user_id=user_uuid).order_by(Property.created_at.desc()).all()
         return [property.to_dict() for property in properties]
     
     except Exception as e:
@@ -275,8 +275,7 @@ def get_user_reservations(user_id, page=1, per_page=10, search_query=None, prope
         query = (db.session.query(Reservation)
                 .join(Property)
                 .options(db.joinedload(Reservation.property))
-                .filter(Property.user_id == user_uuid)
-                .filter(Property.is_active == True))
+                .filter(Property.user_id == user_uuid))
         
         # Apply search filter
         if search_query:
@@ -532,8 +531,7 @@ def get_user_guests(firebase_uid, page=1, per_page=10, search_query=None, proper
                  .join(Reservation)
                  .join(Property)
                  .options(db.joinedload(Guest.reservation).joinedload(Reservation.property))
-                 .filter(Property.user_id == user.id)
-                 .filter(Property.is_active == True))
+                 .filter(Property.user_id == user.id))
 
         if search_query:
             search_term = f"%{search_query}%"
@@ -880,8 +878,8 @@ def calculate_occupancy_rates(user_id, current_date, period='month'):
             current_label = calendar.month_name[current_date.month]
             future_label = calendar.month_name[future_start.month]
         
-        # Get all user properties (active only)
-        properties = db.session.query(Property).filter_by(user_id=user_uuid, is_active=True).all()
+        # Get all user properties
+        properties = db.session.query(Property).filter_by(user_id=user_uuid).all()
         total_properties = len(properties)
         
         if total_properties == 0:
@@ -1038,12 +1036,11 @@ def get_user_dashboard_stats(user_id):
         user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
         now = datetime.now(timezone.utc)
 
-        total_properties = db.session.query(Property).filter_by(user_id=user_uuid, is_active=True).count()
+        total_properties = db.session.query(Property).filter_by(user_id=user_uuid).count()
         
         reservations_query = (db.session.query(Reservation)
                               .join(Property)
-                              .filter(Property.user_id == user_uuid)
-                              .filter(Property.is_active == True))
+                              .filter(Property.user_id == user_uuid))
         
         total_reservations = reservations_query.count()
         

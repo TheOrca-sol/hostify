@@ -5,7 +5,7 @@ Dashboard routes for Hostify
 from flask import Blueprint, jsonify, g, request, current_app
 from flask_cors import cross_origin
 from ..utils.auth import require_auth
-from ..utils.database import get_user_by_firebase_uid
+from ..utils.database import get_user_by_firebase_uid, get_user_dashboard_stats
 from ..models import db, Property, Reservation, Guest, SyncLog, ScheduledMessage, Contract, TeamMember, Team, MessageTemplate
 from sqlalchemy import desc, func
 from datetime import datetime, timezone, timedelta
@@ -23,87 +23,9 @@ def get_dashboard_stats_route():
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
 
-        # Get user's properties
-        properties = Property.query.filter_by(user_id=user.id, is_active=True).all()
-        property_ids = [p.id for p in properties]
-
-        # Get user's teams (as owner or member)
-        owned_teams = Team.query.filter_by(organization_id=user.id, is_active=True).all()
-        member_teams = TeamMember.query.filter_by(user_id=user.id, is_active=True).all()
-        
-        # Get properties from teams the user is a member of
-        team_property_ids = []
-        for member_team in member_teams:
-            team_properties = Property.query.filter_by(team_id=member_team.team_id, is_active=True).all()
-            team_property_ids.extend([p.id for p in team_properties])
-
-        # Combine all property IDs the user has access to
-        all_property_ids = property_ids + team_property_ids
-
-        # Calculate statistics
-        total_properties = len(set(all_property_ids))
-        
-        # Get reservations for all accessible properties
-        total_reservations = Reservation.query.filter(
-            Reservation.property_id.in_(all_property_ids)
-        ).count()
-        
-        # Get upcoming reservations (next 30 days)
-        upcoming_reservations = Reservation.query.filter(
-            Reservation.property_id.in_(all_property_ids),
-            Reservation.check_in >= datetime.now(timezone.utc),
-            Reservation.check_in <= datetime.now(timezone.utc) + timedelta(days=30)
-        ).count()
-        
-        # Get active guests (currently staying)
-        now = datetime.now(timezone.utc)
-        active_guests = Reservation.query.filter(
-            Reservation.property_id.in_(all_property_ids),
-            Reservation.check_in <= now,
-            Reservation.check_out >= now
-        ).count()
-
-        # Calculate occupancy rate for the current month
-        current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        current_month_end = (current_month_start + timedelta(days=32)).replace(day=1) - timedelta(seconds=1)
-        
-        # Get all reservations in current month
-        month_reservations = Reservation.query.filter(
-            Reservation.property_id.in_(all_property_ids),
-            Reservation.check_in <= current_month_end,
-            Reservation.check_out >= current_month_start
-        ).all()
-        
-        # Calculate occupancy days
-        total_occupancy_days = 0
-        total_available_days = 0
-        
-        for property in properties:
-            property_days = (current_month_end - current_month_start).days + 1
-            total_available_days += property_days
-            
-            # Calculate occupied days for this property
-            for reservation in month_reservations:
-                if reservation.property_id == property.id:
-                    overlap_start = max(reservation.check_in, current_month_start)
-                    overlap_end = min(reservation.check_out, current_month_end)
-                    if overlap_end > overlap_start:
-                        total_occupancy_days += (overlap_end - overlap_start).days
-        
-        occupancy_rate = (total_occupancy_days / total_available_days * 100) if total_available_days > 0 else 0
-
-        stats = {
-            'totalProperties': total_properties,
-            'totalReservations': total_reservations,
-            'upcomingReservations': upcoming_reservations,
-            'activeGuests': active_guests,
-            'occupancy': {
-                'rate': round(occupancy_rate, 1),
-                'period': 'month',
-                'occupiedDays': total_occupancy_days,
-                'totalDays': total_available_days
-            }
-        }
+        stats = get_user_dashboard_stats(user.id)
+        if stats is None:
+            return jsonify({'success': False, 'error': 'Failed to retrieve dashboard stats'}), 500
 
         return jsonify({
             'success': True,
@@ -113,7 +35,7 @@ def get_dashboard_stats_route():
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': f'Failed to get dashboard stats: {str(e)}'
+            'error': f'An unexpected error occurred: {str(e)}'
         }), 500
 
 @dashboard_bp.route('/recent-activity', methods=['GET', 'OPTIONS'])
