@@ -3,8 +3,15 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:50
 
 // API service functions
 export const api = {
-  // Get auth token from Firebase
+  // Get auth token from Firebase or OTC
   async getAuthToken() {
+    // Check for OTC token first
+    const otcToken = localStorage.getItem('otc_token')
+    if (otcToken) {
+      return otcToken
+    }
+    
+    // Fall back to Firebase token
     const { getCurrentUser, getIdToken } = await import('./auth');
     const user = getCurrentUser();
     if (!user) throw new Error('User not authenticated');

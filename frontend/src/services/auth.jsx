@@ -244,9 +244,16 @@ export function AuthProvider({ children }) {
         // User is authenticated, now check if they have a profile in our system
         await loadUserProfile()
       } else {
-        // User signed out
-        setUserProfile(null)
-        setNeedsProfileSetup(false)
+        // Check if user is authenticated via OTC
+        const otcUser = getOTCUser()
+        if (otcUser) {
+          setUserProfile(otcUser)
+          setNeedsProfileSetup(false)
+        } else {
+          // User signed out
+          setUserProfile(null)
+          setNeedsProfileSetup(false)
+        }
       }
       
       setLoading(false)
@@ -254,6 +261,56 @@ export function AuthProvider({ children }) {
 
     return unsubscribe
   }, [])
+
+  // OTC Authentication methods
+  const signInWithOTC = async (phoneNumber, code) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/sms-auth/login/verify-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          phone_number: phoneNumber,
+          code: code 
+        })
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        // Store OTC user info
+        localStorage.setItem('otc_user', JSON.stringify(result.user))
+        localStorage.setItem('otc_token', result.token)
+        return result
+      } else {
+        throw new Error(result.error || 'OTC authentication failed')
+      }
+    } catch (error) {
+      console.error('OTC sign in error:', error)
+      throw error
+    }
+  }
+
+  const logoutOTC = () => {
+    localStorage.removeItem('otc_user')
+    localStorage.removeItem('otc_token')
+    setUserProfile(null)
+    setNeedsProfileSetup(false)
+  }
+
+  const getOTCToken = () => {
+    return localStorage.getItem('otc_token')
+  }
+
+  const getOTCUser = () => {
+    const userStr = localStorage.getItem('otc_user')
+    return userStr ? JSON.parse(userStr) : null
+  }
+
+  const isOTCAuthenticated = () => {
+    return !!getOTCToken()
+  }
 
   const value = {
     // Auth state
@@ -272,6 +329,13 @@ export function AuthProvider({ children }) {
     resetPassword,
     logout,
     getIdToken,
+    
+    // OTC Auth methods
+    signInWithOTC,
+    logoutOTC,
+    getOTCToken,
+    getOTCUser,
+    isOTCAuthenticated,
     
     // Profile methods
     setupUserProfile,

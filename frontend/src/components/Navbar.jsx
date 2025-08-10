@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 
 export default function Navbar() {
-  const { user, logout } = useAuth()
+  const { user, logout, logoutOTC, isOTCAuthenticated } = useAuth()
   const location = useLocation()
 
   const isActive = (path) => location.pathname === path
@@ -69,7 +69,7 @@ export default function Navbar() {
             </Link>
 
             <button
-              onClick={logout}
+              onClick={isOTCAuthenticated() ? logoutOTC : logout}
               className="flex items-center space-x-2 px-3 py-2 rounded-md text-gray-600 hover:bg-gray-100"
             >
               <LogOut size={20} />

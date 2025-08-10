@@ -2,11 +2,12 @@ import React, { useState } from 'react'
 import { useAuth } from '../services/auth'
 import { useNavigate } from 'react-router-dom'
 import { toast } from '../components/Toaster'
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, Phone } from 'lucide-react'
+import OTCLogin from '../components/OTCLogin'
 
 function Login() {
   const [loading, setLoading] = useState(false)
-  const [authMode, setAuthMode] = useState('social') // 'social' or 'email'
+  const [authMode, setAuthMode] = useState('social') // 'social', 'email', or 'otc'
   const [isSignUp, setIsSignUp] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
@@ -161,6 +162,17 @@ function Login() {
             >
               Email & Password
             </button>
+            <button
+              onClick={() => setAuthMode('otc')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                authMode === 'otc'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Phone className="w-4 h-4 mr-1 inline" />
+              SMS Login
+            </button>
           </div>
         </div>
 
@@ -205,6 +217,10 @@ function Login() {
               Continue with Microsoft
             </button>
           </div>
+        )}
+
+        {authMode === 'otc' && (
+          <OTCLogin />
         )}
 
         {authMode === 'email' && (
