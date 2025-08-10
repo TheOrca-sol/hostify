@@ -922,6 +922,7 @@ def calculate_occupancy_rates(user_id, current_date, period='month'):
                 while current_date_iter <= end_date:
                     current_occupied_dates.add((current_date_iter, reservation.property_id))
                     current_date_iter += timedelta(days=1)
+                print(f"DEBUG: Reservation {reservation.id} for property {reservation.property_id}: {start_date} to {end_date} = {(end_date - start_date).days + 1} days")
         
         current_booked_days = len(current_occupied_dates)
         
@@ -970,6 +971,8 @@ def calculate_occupancy_rates(user_id, current_date, period='month'):
             
             prop_booked_days = len(prop_occupied_dates)
             prop_rate = round((prop_booked_days / current_period_days) * 100, 1) if current_period_days > 0 else 0
+            
+            print(f"DEBUG: Property {prop.name} ({prop.id}): {prop_booked_days} booked days out of {current_period_days} total days = {prop_rate}%")
             
             property_occupancy.append({
                 'id': str(prop.id),
