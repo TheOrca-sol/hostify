@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './services/auth'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import ProfileSetup from './pages/ProfileSetup'
+import Profile from './pages/Profile'
 import Navbar from './components/Navbar'
 import { Toaster } from './components/Toaster'
 import GuestVerification from './pages/GuestVerification'
@@ -63,11 +64,17 @@ function App() {
               </ProtectedRoute>
             } />
             
-            <Route path="/profile-setup" element={
-              <ProtectedRoute allowProfileSetup={true}>
-                <ProfileSetup />
-              </ProtectedRoute>
-            } />
+                    <Route path="/profile" element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/profile-setup" element={
+          <ProtectedRoute allowProfileSetup={true}>
+            <ProfileSetup />
+          </ProtectedRoute>
+        } />
             
             <Route path="/contract-templates" element={
               <ProtectedRoute>

@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 
 export default function Navbar() {
-  const { user, logout, logoutOTC, isOTCAuthenticated } = useAuth()
+  const { user, logout, logoutOTC, isOTCAuthenticated, userProfile, needsProfileSetup } = useAuth()
   const location = useLocation()
 
   const isActive = (path) => location.pathname === path
@@ -59,9 +59,9 @@ export default function Navbar() {
 
           <div className="flex items-center space-x-4">
             <Link
-              to="/profile-setup"
+              to={needsProfileSetup ? "/profile-setup" : "/profile"}
               className={`flex items-center space-x-2 px-3 py-2 rounded-md ${
-                isActive('/profile-setup') ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
+                isActive('/profile') || isActive('/profile-setup') ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
               <User size={20} />
