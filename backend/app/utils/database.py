@@ -878,8 +878,8 @@ def calculate_occupancy_rates(user_id, current_date, period='month'):
             current_label = calendar.month_name[current_date.month]
             future_label = calendar.month_name[future_start.month]
         
-        # Get all user properties
-        properties = db.session.query(Property).filter_by(user_id=user_uuid).all()
+        # Get all user properties (active only)
+        properties = db.session.query(Property).filter_by(user_id=user_uuid, is_active=True).all()
         total_properties = len(properties)
         
         if total_properties == 0:
