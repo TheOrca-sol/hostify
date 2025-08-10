@@ -288,8 +288,15 @@ def get_occupancy_rates_route():
 
         period = request.args.get('period', 'month')
         
+        # Validate period
+        valid_periods = ['week', 'month', 'quarter', 'year']
+        if period not in valid_periods:
+            return jsonify({'success': False, 'error': f'Invalid period. Must be one of: {valid_periods}'}), 400
+        
         # Calculate occupancy for the specified period
         from ..utils.database import calculate_occupancy_rates
+        from datetime import datetime, timezone
+        
         occupancy_data = calculate_occupancy_rates(user.id, datetime.now(timezone.utc), period)
         
         return jsonify({

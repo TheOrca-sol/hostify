@@ -951,8 +951,6 @@ def calculate_occupancy_rates(user_id, current_date, period='month'):
         current_rate = round((current_booked_days / current_total_days) * 100, 1) if current_total_days > 0 else 0
         future_rate = round((future_booked_days / future_total_days) * 100, 1) if future_total_days > 0 else 0
         
-
-        
         # Calculate per-property occupancy for current period
         property_occupancy = []
         
