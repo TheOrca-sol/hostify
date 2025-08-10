@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import SignatureCapture from '../components/SignatureCapture'
 
 export default function ProfileSetup() {
-  const { user, setupUserProfile, profileLoading } = useAuth()
+  const { user, setupUserProfile, profileLoading, logout } = useAuth()
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
     name: user?.displayName || '',
@@ -208,7 +208,7 @@ export default function ProfileSetup() {
             </p>
             <button
               type="button"
-              onClick={() => {/* Add logout functionality if needed */}}
+              onClick={logout}
               className="text-sm text-blue-600 hover:text-blue-500"
             >
               Not you? Sign out
