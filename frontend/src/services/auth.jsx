@@ -182,16 +182,21 @@ export function AuthProvider({ children }) {
   // Load user profile
   const loadUserProfile = async () => {
     try {
+      console.log('loadUserProfile: Starting to load profile...')
       setProfileLoading(true)
       const { api } = await import('./api')
       const result = await api.getUserProfile()
       
+      console.log('loadUserProfile: API result:', result)
+      
       if (result.success) {
+        console.log('loadUserProfile: Setting user profile:', result.user)
         setUserProfile(result.user)
         setNeedsProfileSetup(false)
       } else {
         // User exists in Firebase but not in our database - needs profile setup
         if (result.error && result.error.includes('not found')) {
+          console.log('loadUserProfile: User not found, needs profile setup')
           setNeedsProfileSetup(true)
         } else {
           console.error('Failed to load user profile:', result.error)
