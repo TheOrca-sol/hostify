@@ -895,16 +895,16 @@ def calculate_occupancy_rates(user_id, current_date, period='month'):
         current_reservations = (db.session.query(Reservation)
                                      .join(Property)
                                      .filter(Property.user_id == user_uuid)
-                                     .filter(Reservation.status == 'confirmed')
                                      .filter(Reservation.check_out > current_start)
                                      .filter(Reservation.check_in < current_end)
                                      .all())
+        
+
         
         # Calculate future period occupancy
         future_reservations = (db.session.query(Reservation)
                                   .join(Property)
                                   .filter(Property.user_id == user_uuid)
-                                  .filter(Reservation.status == 'confirmed')
                                   .filter(Reservation.check_out > future_start)
                                   .filter(Reservation.check_in < future_end)
                                   .all())
