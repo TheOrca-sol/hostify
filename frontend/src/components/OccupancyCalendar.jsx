@@ -229,7 +229,7 @@ const OccupancyCalendar = ({ occupancyData, properties, reservations }) => {
           <div className="text-lg font-bold text-gray-900">
             {calendarDays.filter(day => day && day.occupancyRate > 0).length}
           </div>
-          <div className="text-sm text-gray-600">Occupied Days</div>
+                          <div className="text-sm text-gray-600">Occupied Nights</div>
         </div>
         <div className="bg-gray-50 rounded-lg p-3">
           <div className="text-lg font-bold text-gray-900">
@@ -241,11 +241,11 @@ const OccupancyCalendar = ({ occupancyData, properties, reservations }) => {
           <div className="text-lg font-bold text-gray-900">
             {calendarDays.filter(day => day && day.occupancyRate === 0).length}
           </div>
-          <div className="text-sm text-gray-600">Available Days</div>
+                          <div className="text-sm text-gray-600">Available Nights</div>
         </div>
       </div>
     </div>
   )
 }
 
-export default OccupancyCalendar 
+export default OccupancyCalendar

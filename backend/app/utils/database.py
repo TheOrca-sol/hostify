@@ -895,16 +895,16 @@ def calculate_occupancy_rates(user_id, current_date, period='month'):
         current_reservations = (db.session.query(Reservation)
                                      .join(Property)
                                      .filter(Property.user_id == user_uuid)
+                                     .filter(Reservation.status == 'confirmed')
                                      .filter(Reservation.check_out > current_start)
                                      .filter(Reservation.check_in < current_end)
                                      .all())
-        
-
         
         # Calculate future period occupancy
         future_reservations = (db.session.query(Reservation)
                                   .join(Property)
                                   .filter(Property.user_id == user_uuid)
+                                  .filter(Reservation.status == 'confirmed')
                                   .filter(Reservation.check_out > future_start)
                                   .filter(Reservation.check_in < future_end)
                                   .all())
@@ -917,40 +917,41 @@ def calculate_occupancy_rates(user_id, current_date, period='month'):
             start_date = max(reservation.check_in.date(), current_start.date())
             end_date = min(reservation.check_out.date(), current_end.date())
             if start_date <= end_date:
-                # Add each date in the range to our set (automatically handles overlaps)
+                # Add each NIGHT to our set (check-in night to check-out night, excluding check-out date)
                 current_date_iter = start_date
-                while current_date_iter <= end_date:
+                while current_date_iter < end_date:  # < end_date, not <= end_date
                     current_occupied_dates.add((current_date_iter, reservation.property_id))
                     current_date_iter += timedelta(days=1)
-                print(f"DEBUG: Reservation {reservation.id} for property {reservation.property_id}: {start_date} to {end_date} = {(end_date - start_date).days + 1} days")
         
-        current_booked_days = len(current_occupied_dates)
+        current_booked_nights = len(current_occupied_dates)
         
-        # Calculate booked days for future period  
-        future_booked_days = 0
-        future_occupied_dates = set()  # Track unique dates to avoid double-counting overlaps
+        # Calculate booked nights for future period  
+        future_booked_nights = 0
+        future_occupied_dates = set()  # Track unique nights to avoid double-counting overlaps
         
         for reservation in future_reservations:
             start_date = max(reservation.check_in.date(), future_start.date())
             end_date = min(reservation.check_out.date(), future_end.date())
             if start_date <= end_date:
-                # Add each date in the range to our set (automatically handles overlaps)
+                # Add each NIGHT to our set (check-in night to check-out night, excluding check-out date)
                 current_date_iter = start_date
-                while current_date_iter <= end_date:
+                while current_date_iter < end_date:  # < end_date, not <= end_date
                     future_occupied_dates.add((current_date_iter, reservation.property_id))
                     current_date_iter += timedelta(days=1)
         
-        future_booked_days = len(future_occupied_dates)
+        future_booked_nights = len(future_occupied_dates)
         
-        # Calculate total available days (properties * days in period) - Fixed calculation
-        current_period_days = (current_end.date() - current_start.date()).days + 1
-        future_period_days = (future_end.date() - future_start.date()).days + 1
-        current_total_days = total_properties * current_period_days
-        future_total_days = total_properties * future_period_days
+        # Calculate total available nights (properties * nights in period)
+        current_period_nights = (current_end.date() - current_start.date()).days
+        future_period_nights = (future_end.date() - future_start.date()).days
+        current_total_nights = total_properties * current_period_nights
+        future_total_nights = total_properties * future_period_nights
         
         # Calculate occupancy rates
-        current_rate = round((current_booked_days / current_total_days) * 100, 1) if current_total_days > 0 else 0
-        future_rate = round((future_booked_days / future_total_days) * 100, 1) if future_total_days > 0 else 0
+        current_rate = round((current_booked_nights / current_total_nights) * 100, 1) if current_total_nights > 0 else 0
+        future_rate = round((future_booked_nights / future_total_nights) * 100, 1) if future_total_nights > 0 else 0
+        
+
         
         # Calculate per-property occupancy for current period
         property_occupancy = []
@@ -959,27 +960,41 @@ def calculate_occupancy_rates(user_id, current_date, period='month'):
             prop_reservations = [r for r in current_reservations if r.property_id == prop.id]
             prop_occupied_dates = set()
             
+            # Filter to only include reservations with new ID format (not containing @airbnb.com)
+            new_format_reservations = []
             for reservation in prop_reservations:
+                if reservation.external_id and '@airbnb.com' not in reservation.external_id:
+                    new_format_reservations.append(reservation)
+            
+            # Remove exact duplicates (same date range) but keep overlapping reservations
+            unique_reservations = []
+            seen_ranges = set()
+            
+            for reservation in new_format_reservations:
+                date_range = (reservation.check_in.date(), reservation.check_out.date())
+                if date_range not in seen_ranges:
+                    seen_ranges.add(date_range)
+                    unique_reservations.append(reservation)
+            
+            for reservation in unique_reservations:
                 start_date = max(reservation.check_in.date(), current_start.date())
                 end_date = min(reservation.check_out.date(), current_end.date())
                 if start_date <= end_date:
-                    # Add each date in the range to our set (automatically handles overlaps)
+                    # Add each NIGHT to our set (check-in night to check-out night, excluding check-out date)
                     current_date_iter = start_date
-                    while current_date_iter <= end_date:
+                    while current_date_iter < end_date:  # < end_date, not <= end_date
                         prop_occupied_dates.add(current_date_iter)
                         current_date_iter += timedelta(days=1)
             
-            prop_booked_days = len(prop_occupied_dates)
-            prop_rate = round((prop_booked_days / current_period_days) * 100, 1) if current_period_days > 0 else 0
-            
-            print(f"DEBUG: Property {prop.name} ({prop.id}): {prop_booked_days} booked days out of {current_period_days} total days = {prop_rate}%")
+            prop_booked_nights = len(prop_occupied_dates)
+            prop_rate = round((prop_booked_nights / current_period_nights) * 100, 1) if current_period_nights > 0 else 0
             
             property_occupancy.append({
                 'id': str(prop.id),
                 'name': prop.name,
                 'rate': prop_rate,
-                'bookedDays': prop_booked_days,
-                'totalDays': current_period_days
+                'bookedNights': prop_booked_nights,
+                'totalNights': current_period_nights
             })
         
         # Calculate overall occupancy (average of current and future periods)
@@ -988,14 +1003,14 @@ def calculate_occupancy_rates(user_id, current_date, period='month'):
         return {
             'currentPeriod': {
                 'rate': current_rate,
-                'bookedDays': current_booked_days,
-                'totalDays': current_total_days,
+                'bookedNights': current_booked_nights,
+                'totalNights': current_total_nights,
                 'label': current_label
             },
             'futurePeriod': {
                 'rate': future_rate,
-                'bookedDays': future_booked_days,
-                'totalDays': future_total_days,
+                'bookedNights': future_booked_nights,
+                'totalNights': future_total_nights,
                 'label': future_label
             },
             'properties': property_occupancy,
@@ -1004,14 +1019,14 @@ def calculate_occupancy_rates(user_id, current_date, period='month'):
             # Keep backward compatibility
             'currentMonth': {
                 'rate': current_rate,
-                'bookedDays': current_booked_days,
-                'totalDays': current_total_days,
+                'bookedNights': current_booked_nights,
+                'totalNights': current_total_nights,
                 'month': current_label
             },
             'nextMonth': {
                 'rate': future_rate,
-                'bookedDays': future_booked_days,
-                'totalDays': future_total_days,
+                'bookedNights': future_booked_nights,
+                'totalNights': future_total_nights,
                 'month': future_label
             }
         }

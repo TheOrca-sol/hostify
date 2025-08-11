@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { BarChart3, TrendingUp, TrendingDown, Home, Eye, EyeOff } from 'lucide-react'
 
 const PropertyOccupancyChart = ({ occupancyData, period = 'month' }) => {
-  const [sortBy, setSortBy] = useState('rate') // 'rate', 'name', 'bookedDays'
+  const [sortBy, setSortBy] = useState('rate') // 'rate', 'name', 'bookedNights'
   const [sortOrder, setSortOrder] = useState('desc') // 'asc', 'desc'
   const [showDetails, setShowDetails] = useState(true)
 
@@ -28,8 +28,8 @@ const PropertyOccupancyChart = ({ occupancyData, period = 'month' }) => {
       case 'name':
         comparison = a.name.localeCompare(b.name)
         break
-      case 'bookedDays':
-        comparison = a.bookedDays - b.bookedDays
+              case 'bookedNights':
+          comparison = a.bookedNights - b.bookedNights
         break
       default:
         comparison = a.rate - b.rate
@@ -39,7 +39,7 @@ const PropertyOccupancyChart = ({ occupancyData, period = 'month' }) => {
   })
 
   const maxRate = Math.max(...occupancyData.properties.map(p => p.rate), 100)
-  const maxBookedDays = Math.max(...occupancyData.properties.map(p => p.bookedDays))
+      const maxBookedNights = Math.max(...occupancyData.properties.map(p => p.bookedNights))
 
   const getPerformanceIcon = (rate) => {
     if (rate >= 80) return <TrendingUp className="h-4 w-4 text-green-600" />
@@ -109,12 +109,12 @@ const PropertyOccupancyChart = ({ occupancyData, period = 'month' }) => {
               Rate {getSortIcon('rate')}
             </button>
             <button
-              onClick={() => handleSort('bookedDays')}
+              onClick={() => handleSort('bookedNights')}
               className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                sortBy === 'bookedDays' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
+                sortBy === 'bookedNights' ? 'bg-blue-100 text-blue-700' : 'text-gray-600 hover:bg-gray-100'
               }`}
             >
-              Days {getSortIcon('bookedDays')}
+              Nights {getSortIcon('bookedNights')}
             </button>
             <button
               onClick={() => handleSort('name')}
@@ -191,7 +191,7 @@ const PropertyOccupancyChart = ({ occupancyData, period = 'month' }) => {
             <div className="mb-3">
               <div className="flex items-center justify-between text-sm text-gray-600 mb-1">
                 <span>Occupancy Rate</span>
-                <span>{property.bookedDays}/{property.totalDays} days</span>
+                <span>{property.bookedNights}/{property.totalNights} nights</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-3 relative overflow-hidden">
                 <div 
@@ -211,12 +211,12 @@ const PropertyOccupancyChart = ({ occupancyData, period = 'month' }) => {
             {showDetails && (
               <div className="grid grid-cols-3 gap-4 pt-3 border-t border-gray-100">
                 <div className="text-center">
-                  <div className="text-lg font-semibold text-gray-900">{property.bookedDays}</div>
-                  <div className="text-sm text-gray-600">Booked Days</div>
+                  <div className="text-lg font-semibold text-gray-900">{property.bookedNights}</div>
+                  <div className="text-sm text-gray-600">Booked Nights</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg font-semibold text-gray-900">{property.totalDays - property.bookedDays}</div>
-                  <div className="text-sm text-gray-600">Available Days</div>
+                  <div className="text-lg font-semibold text-gray-900">{property.totalNights - property.bookedNights}</div>
+                  <div className="text-sm text-gray-600">Available Nights</div>
                 </div>
                 <div className="text-center">
                   <div className="text-lg font-semibold text-gray-900">
@@ -251,4 +251,4 @@ const PropertyOccupancyChart = ({ occupancyData, period = 'month' }) => {
   )
 }
 
-export default PropertyOccupancyChart 
+export default PropertyOccupancyChart

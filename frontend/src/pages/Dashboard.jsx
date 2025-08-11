@@ -88,34 +88,18 @@ export default function Dashboard() {
         // Fallback to basic stats data if API call fails
         if (stats.occupancy) {
           setOccupancyData({
-            rate: stats.occupancy.rate,
-            period: period,
-            occupiedDays: stats.occupancy.occupiedDays,
-            totalDays: stats.occupancy.totalDays,
-            overall: stats.occupancy.rate,
-            currentPeriod: {
-              rate: stats.occupancy.rate,
-              bookedDays: stats.occupancy.occupiedDays,
-              totalDays: stats.occupancy.totalDays
-            }
+            ...stats.occupancy,
+            period: period
           });
         }
       }
     } catch (error) {
       console.error('Error loading occupancy data:', error);
-      // Fallback to basic stats data on error
+      // Fallback to existing data on error
       if (stats.occupancy) {
         setOccupancyData({
-          rate: stats.occupancy.rate,
-          period: period,
-          occupiedDays: stats.occupancy.occupiedDays,
-          totalDays: stats.occupancy.totalDays,
-          overall: stats.occupancy.rate,
-          currentPeriod: {
-            rate: stats.occupancy.rate,
-            bookedDays: stats.occupancy.occupiedDays,
-            totalDays: stats.occupancy.totalDays
-          }
+          ...stats.occupancy,
+          period: period
         });
       }
     }
@@ -123,8 +107,10 @@ export default function Dashboard() {
 
   // Load occupancy data when period changes
   useEffect(() => {
-    loadOccupancyData(occupancyPeriod);
-  }, [occupancyPeriod]);
+    if (stats.occupancy) {
+      loadOccupancyData(occupancyPeriod);
+    }
+  }, [occupancyPeriod, stats.occupancy]);
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: BarChart },
@@ -476,15 +462,15 @@ export default function Dashboard() {
                              </div>
                              <div className="space-y-2">
                                <div className="flex justify-between text-sm">
-                                 <span className="text-gray-600">Booked Days:</span>
+                                 <span className="text-gray-600">Booked Nights:</span>
                                  <span className="font-medium">
-                                   {occupancyData.currentPeriod?.bookedDays || occupancyData.currentMonth?.bookedDays || 0}
+                                   {occupancyData.currentPeriod?.bookedNights || occupancyData.currentMonth?.bookedNights || 0}
                                  </span>
                                </div>
                                <div className="flex justify-between text-sm">
                                  <span className="text-gray-600">Total Available:</span>
                                  <span className="font-medium">
-                                   {occupancyData.currentPeriod?.totalDays || occupancyData.currentMonth?.totalDays || 0}
+                                   {occupancyData.currentPeriod?.totalNights || occupancyData.currentMonth?.totalNights || 0}
                                  </span>
                                </div>
                                <div className="w-full bg-gray-200 rounded-full h-2">
@@ -508,15 +494,15 @@ export default function Dashboard() {
                              </div>
                              <div className="space-y-2">
                                <div className="flex justify-between text-sm">
-                                 <span className="text-gray-600">Booked Days:</span>
+                                 <span className="text-gray-600">Booked Nights:</span>
                                  <span className="font-medium">
-                                   {occupancyData.futurePeriod?.bookedDays || occupancyData.nextMonth?.bookedDays || 0}
+                                   {occupancyData.futurePeriod?.bookedNights || occupancyData.nextMonth?.bookedNights || 0}
                                  </span>
                                </div>
                                <div className="flex justify-between text-sm">
                                  <span className="text-gray-600">Total Available:</span>
                                  <span className="font-medium">
-                                   {occupancyData.futurePeriod?.totalDays || occupancyData.nextMonth?.totalDays || 0}
+                                   {occupancyData.futurePeriod?.totalNights || occupancyData.nextMonth?.totalNights || 0}
                                  </span>
                                </div>
                                <div className="w-full bg-gray-200 rounded-full h-2">
