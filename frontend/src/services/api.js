@@ -52,6 +52,24 @@ export const api = {
     }
   },
 
+  async updateUserProfile(profileData) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/user/profile`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(profileData)
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw error;
+    }
+  },
+
   // Property Management
   async createProperty(propertyData) {
     try {
@@ -844,10 +862,18 @@ export const api = {
     }
   },
 
-  async getOccupancyData(period = 'month') {
+  async getOccupancyData(period = 'month', startDate = null, endDate = null) {
     try {
       const token = await this.getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/dashboard/occupancy?period=${period}`, {
+      const url = new URL(`${API_BASE_URL}/dashboard/occupancy`);
+      url.searchParams.append('period', period);
+      
+      if (startDate && endDate) {
+        url.searchParams.append('start_date', startDate);
+        url.searchParams.append('end_date', endDate);
+      }
+      
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

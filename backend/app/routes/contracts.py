@@ -80,14 +80,15 @@ def get_contract(contract_id):
 
         contract = Contract.query.options(
             joinedload(Contract.guest),
-            joinedload(Contract.reservation).joinedload(Reservation.property)
+            joinedload(Contract.reservation).joinedload(Reservation.property).joinedload(Property.owner),
+            joinedload(Contract.template)
         ).get(contract_uuid)
 
         if not contract:
             return jsonify({'success': False, 'error': 'Contract not found'}), 404
 
         # Verify ownership
-        if str(contract.guest.reservation.property.user_id) != user.id:
+        if str(contract.guest.reservation.property.user_id) != str(user.id):
             return jsonify({'success': False, 'error': 'Access denied'}), 403
 
         return jsonify({'success': True, 'contract': contract.to_dict()})
@@ -264,7 +265,7 @@ def download_contract(contract_id):
         # Load contract with all necessary relationships
         contract = Contract.query.options(
             joinedload(Contract.guest),
-            joinedload(Contract.reservation).joinedload(Reservation.property),
+            joinedload(Contract.reservation).joinedload(Reservation.property).joinedload(Property.owner),
             joinedload(Contract.template)
         ).get(contract_uuid)
 
@@ -272,7 +273,7 @@ def download_contract(contract_id):
             return jsonify({'error': 'Contract not found'}), 404
 
         # Verify ownership immediately
-        if str(contract.guest.reservation.property.user_id) != user.id:
+        if str(contract.guest.reservation.property.user_id) != str(user.id):
             return jsonify({'error': 'Access denied'}), 403
 
         # Check if contract is signed
@@ -329,12 +330,16 @@ def regenerate_contract_pdf(contract_id):
         except ValueError:
             return jsonify({'error': 'Invalid contract ID format'}), 400
 
-        contract = Contract.query.get(contract_uuid)
+        contract = Contract.query.options(
+            joinedload(Contract.guest),
+            joinedload(Contract.reservation).joinedload(Reservation.property).joinedload(Property.owner),
+            joinedload(Contract.template)
+        ).get(contract_uuid)
         if not contract:
             return jsonify({'error': 'Contract not found'}), 404
             
         # Verify ownership
-        if str(contract.guest.reservation.property.user_id) != user.id:
+        if str(contract.guest.reservation.property.user_id) != str(user.id):
             return jsonify({'error': 'Access denied'}), 403
             
         # Check if contract is signed
@@ -379,7 +384,7 @@ def generate_contract_and_schedule_sms(guest_id):
         if not guest.reservation or not guest.reservation.property:
             return jsonify({'success': False, 'error': 'Invalid guest data'}), 400
 
-        if str(guest.reservation.property.user_id) != user.id:
+        if str(guest.reservation.property.user_id) != str(user.id):
             return jsonify({'success': False, 'error': 'Access denied'}), 403
 
         # Check if property has a contract template

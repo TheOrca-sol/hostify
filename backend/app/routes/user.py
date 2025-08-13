@@ -44,3 +44,35 @@ def setup_user_profile():
             return jsonify({'success': False, 'error': 'Failed to create user profile'}), 500
     except Exception as e:
         return jsonify({'success': False, 'error': f'Failed to setup user: {str(e)}'}), 500
+
+@user_bp.route('/user/profile', methods=['PUT'])
+@require_auth
+def update_user_profile():
+    """Update user profile"""
+    try:
+        user_data = request.get_json()
+        if not user_data:
+            return jsonify({'success': False, 'error': 'No user data provided'}), 400
+        
+        # Get current user
+        user = get_user_by_firebase_uid(g.user_id)
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+        
+        # Update allowed fields
+        allowed_fields = ['name', 'phone', 'company_name', 'business_type', 'signature']
+        for field in allowed_fields:
+            if field in user_data:
+                setattr(user, field, user_data[field])
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Profile updated successfully',
+            'profile': user.to_dict()
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'Failed to update profile: {str(e)}'}), 500

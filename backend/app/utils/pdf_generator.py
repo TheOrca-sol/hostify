@@ -118,9 +118,11 @@ def generate_contract_pdf(content, guest, contract):
         
         # Get host signature from property owner
         host_signature_cell = '_________________'
+        temp_host_signature_path = None
         try:
             if contract.reservation and contract.reservation.property and contract.reservation.property.owner:
                 host = contract.reservation.property.owner
+                current_app.logger.info(f"Host found for regular PDF: {host.name}, has signature: {bool(host.signature)}")
                 if host.signature:
                     # Create temporary host signature image
                     host_signature_data = host.signature
@@ -137,12 +139,6 @@ def generate_contract_pdf(content, guest, contract):
                     # Create ReportLab image for host signature
                     host_sig_img = Image(temp_host_signature_path, width=2*inch, height=1*inch)
                     host_signature_cell = host_sig_img
-                    
-                    # Clean up temp file immediately after use
-                    try:
-                        os.remove(temp_host_signature_path)
-                    except:
-                        pass
         except Exception as sig_error:
             current_app.logger.error(f"Error processing host signature: {sig_error}")
             host_signature_cell = '_________________'
@@ -173,6 +169,13 @@ def generate_contract_pdf(content, guest, contract):
     except Exception as e:
         current_app.logger.error(f"Error generating contract PDF: {e}", exc_info=True)
         raise
+    finally:
+        # Clean up temporary host signature file
+        if temp_host_signature_path and os.path.exists(temp_host_signature_path):
+            try:
+                os.remove(temp_host_signature_path)
+            except Exception as cleanup_error:
+                current_app.logger.error(f"Error cleaning up temporary host signature file: {cleanup_error}", exc_info=True)
 
 def generate_signed_contract_pdf(content, guest, contract, signature_data):
     """
@@ -194,6 +197,7 @@ def generate_signed_contract_pdf(content, guest, contract, signature_data):
     filepath = os.path.join(contracts_dir, filename)
     
     temp_signature_path = None
+    temp_host_signature_path = None
     
     try:
         # Create PDF document
@@ -279,6 +283,7 @@ def generate_signed_contract_pdf(content, guest, contract, signature_data):
         try:
             if contract.reservation and contract.reservation.property and contract.reservation.property.owner:
                 host = contract.reservation.property.owner
+                current_app.logger.info(f"Host found: {host.name}, has signature: {bool(host.signature)}")
                 if host.signature:
                     story.append(Paragraph("Host Signature:", normal_style))
                     story.append(Spacer(1, 10))
@@ -299,15 +304,14 @@ def generate_signed_contract_pdf(content, guest, contract, signature_data):
                     host_img = Image(temp_host_signature_path, width=3*inch, height=1.5*inch)
                     story.append(host_img)
                     story.append(Spacer(1, 20))
-                    
-                    # Clean up temp host signature file
-                    try:
-                        os.remove(temp_host_signature_path)
-                    except:
-                        pass
                 else:
+                    current_app.logger.info("Host found but no signature on file")
                     story.append(Paragraph("Host Signature: [No signature on file]", normal_style))
                     story.append(Spacer(1, 10))
+            else:
+                current_app.logger.warning(f"Missing relationship data - reservation: {bool(contract.reservation)}, property: {bool(contract.reservation.property if contract.reservation else False)}, owner: {bool(contract.reservation.property.owner if contract.reservation and contract.reservation.property else False)}")
+                story.append(Paragraph("Host Signature: [Host information not available]", normal_style))
+                story.append(Spacer(1, 10))
         except Exception as host_sig_error:
             current_app.logger.error(f"Error processing host signature: {host_sig_error}")
             story.append(Paragraph("Host Signature: [Error loading signature]", normal_style))
@@ -385,9 +389,15 @@ def generate_signed_contract_pdf(content, guest, contract, signature_data):
         raise
         
     finally:
-        # Always clean up temporary signature file
+        # Always clean up temporary signature files
         if temp_signature_path and os.path.exists(temp_signature_path):
             try:
                 os.remove(temp_signature_path)
             except Exception as cleanup_error:
                 current_app.logger.error(f"Error cleaning up temporary signature file: {cleanup_error}", exc_info=True)
+        
+        if temp_host_signature_path and os.path.exists(temp_host_signature_path):
+            try:
+                os.remove(temp_host_signature_path)
+            except Exception as cleanup_error:
+                current_app.logger.error(f"Error cleaning up temporary host signature file: {cleanup_error}", exc_info=True)

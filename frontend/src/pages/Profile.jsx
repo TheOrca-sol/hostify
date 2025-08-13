@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { useAuth } from '../services/auth'
 import { useNavigate } from 'react-router-dom'
 import { toast } from '../components/Toaster'
-import { User, Mail, Phone, Building, Save, ArrowLeft } from 'lucide-react'
+import { User, Mail, Phone, Building, Save, ArrowLeft, Edit3 } from 'lucide-react'
+import SignatureCapture from '../components/SignatureCapture'
 
 export default function Profile() {
   const { user, userProfile, refreshUserProfile, loading: authLoading } = useAuth()
@@ -13,7 +14,8 @@ export default function Profile() {
     name: '',
     phone: '',
     company_name: '',
-    business_type: 'rental_host'
+    business_type: 'rental_host',
+    signature: null
   })
   const [isEditing, setIsEditing] = useState(false)
 
@@ -34,7 +36,8 @@ export default function Profile() {
         name: userProfile.name || '',
         phone: userProfile.phone || '',
         company_name: userProfile.company_name || '',
-        business_type: userProfile.business_type || 'rental_host'
+        business_type: userProfile.business_type || 'rental_host',
+        signature: userProfile.signature || null
       })
     }
   }, [userProfile])
@@ -44,10 +47,19 @@ export default function Profile() {
     setLoading(true)
 
     try {
-      // For now, we'll just refresh the profile since update endpoint isn't implemented
-      await refreshUserProfile()
-      toast.success('Profile updated successfully!')
-      setIsEditing(false)
+      // Import the API function
+      const { api } = await import('../services/api')
+      
+      // Update the profile
+      const result = await api.updateUserProfile(formData)
+      
+      if (result.success) {
+        toast.success('Profile updated successfully!')
+        await refreshUserProfile() // Refresh to get updated data
+        setIsEditing(false)
+      } else {
+        throw new Error(result.error || 'Failed to update profile')
+      }
     } catch (error) {
       toast.error('Failed to update profile')
       console.error('Profile update error:', error)
@@ -245,6 +257,26 @@ export default function Profile() {
                   </select>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Digital Signature
+                  </label>
+                  <p className="text-sm text-gray-500 mb-3">
+                    This signature will be used in rental contracts and legal documents.
+                  </p>
+                  <SignatureCapture
+                    label=""
+                    placeholder="Sign your name here"
+                    value={formData.signature}
+                    onChange={(signature) => setFormData({ ...formData, signature })}
+                    width={500}
+                    height={150}
+                    required={false}
+                    showDownload={true}
+                    className="max-w-xl"
+                  />
+                </div>
+
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
                     type="button"
@@ -290,6 +322,22 @@ export default function Profile() {
                   <p className="text-gray-900">
                     {businessTypes.find(type => type.value === userProfile.business_type)?.label || 'Not specified'}
                   </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Digital Signature</label>
+                  {userProfile.signature ? (
+                    <div className="mt-2">
+                      <img 
+                        src={userProfile.signature} 
+                        alt="Digital Signature" 
+                        className="border border-gray-300 rounded bg-white p-2"
+                        style={{ maxWidth: '300px', maxHeight: '100px' }}
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-gray-500 italic">No signature uploaded</p>
+                  )}
                 </div>
 
                 <div>
