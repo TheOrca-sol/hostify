@@ -368,7 +368,8 @@ class MessageScheduler:
                         'during_stay',
                         'checkout',
                         'review_request',
-                        'cleaner'
+                        'cleaner',
+                        'maintenance'
                     ]),
                     or_(
                         MessageTemplate.property_id == property.id,
@@ -392,15 +393,21 @@ class MessageScheduler:
                     'during_stay': check_in + timedelta(days=1),  # Day after check-in
                     'checkout': check_out - timedelta(days=1),  # Day before check-out
                     'review_request': check_out + timedelta(days=1),  # Day after check-out
-                    'cleaner': check_out  # At check-out time
+                    'cleaner': check_out,  # At check-out time
+                    'maintenance': check_out  # At check-out time (or could be different timing)
                 }.get(template.type)
                 
                 if schedule_time and schedule_time > now:
                     # Create scheduled message
+                    # For cleaner/maintenance messages, don't assign guest_id
+                    guest_id = None
+                    if template.type not in ['cleaner', 'maintenance']:
+                        guest_id = reservation.guests[0].id if reservation.guests else None
+                    
                     scheduled_message = ScheduledMessage(
                         template_id=template.id,
                         reservation_id=reservation.id,
-                        guest_id=reservation.guests[0].id if reservation.guests else None,
+                        guest_id=guest_id,
                         scheduled_for=schedule_time,
                         channels=template.channels
                     )

@@ -38,7 +38,8 @@ def send_due_messages():
             print(f"Found {len(due_messages)} messages to send.")
             
             for message in due_messages:
-                print(f"  -> Sending message {message.id} for guest {message.guest_id}...")
+                recipient_info = f"guest {message.guest_id}" if message.guest_id else f"{message.template.type} team"
+                print(f"  -> Sending message {message.id} for {recipient_info}...")
                 
                 # Populate template variables
                 content = message.template.content
@@ -70,20 +71,54 @@ def send_due_messages():
                     content = content.replace('{' + key + '}', str(value))
                     content = content.replace('{{' + key + '}}', str(value))
                 
-                # Send via SMS
-                if 'sms' in message.channels and message.guest.phone:
-                    result = send_sms(message.guest.phone, content)
-                    if result['success']:
-                        message.status = 'sent'
-                        message.sent_at = datetime.now(timezone.utc)
-                        print(f"    -> Successfully sent SMS to {message.guest.phone}")
-                        print(f"    -> Content: {content[:100]}...")
+                # Determine recipients based on message type
+                if message.template.type in ['cleaner', 'maintenance']:
+                    # Send to team members with appropriate role
+                    from app.models import PropertyTeamMember
+                    
+                    target_role = message.template.type  # 'cleaner' or 'maintenance'
+                    team_members = PropertyTeamMember.query.filter(
+                        PropertyTeamMember.property_id == property.id,
+                        PropertyTeamMember.role == target_role,
+                        PropertyTeamMember.is_active == True
+                    ).all()
+                    
+                    if team_members and 'sms' in message.channels:
+                        sent_count = 0
+                        for team_member in team_members:
+                            if team_member.user and team_member.user.phone:
+                                result = send_sms(team_member.user.phone, content)
+                                if result['success']:
+                                    sent_count += 1
+                                    print(f"    -> Successfully sent SMS to {target_role} {team_member.user.name} at {team_member.user.phone}")
+                                    print(f"    -> Content: {content[:100]}...")
+                                else:
+                                    print(f"    -> Failed to send SMS to {team_member.user.name}: {result['error']}")
+                        
+                        if sent_count > 0:
+                            message.status = 'sent'
+                            message.sent_at = datetime.now(timezone.utc)
+                        else:
+                            message.status = 'failed'
+                            print(f"    -> Failed: No {target_role} team members with phone numbers found.")
                     else:
                         message.status = 'failed'
-                        print(f"    -> Failed to send SMS: {result['error']}")
+                        print(f"    -> Failed: No {target_role} team members found for property.")
                 else:
-                    message.status = 'failed'
-                    print("    -> Failed: No SMS channel or guest phone number.")
+                    # Send to guest (for regular guest messages)
+                    if 'sms' in message.channels and message.guest and message.guest.phone:
+                        result = send_sms(message.guest.phone, content)
+                        if result['success']:
+                            message.status = 'sent'
+                            message.sent_at = datetime.now(timezone.utc)
+                            print(f"    -> Successfully sent SMS to guest {message.guest.phone}")
+                            print(f"    -> Content: {content[:100]}...")
+                        else:
+                            message.status = 'failed'
+                            print(f"    -> Failed to send SMS: {result['error']}")
+                    else:
+                        message.status = 'failed'
+                        print("    -> Failed: No SMS channel or guest phone number.")
 
             db.session.commit()
             print("Finished sending messages.")

@@ -12,5 +12,6 @@ TEMPLATE_TYPES = [
     {'value': 'contract_reminder', 'label': 'Contract Signing Reminder'},
     {'value': 'contract_signed', 'label': 'Contract Signed Confirmation'},
     {'value': 'during_stay', 'label': 'During Stay'},
-    {'value': 'cleaner', 'label': 'Cleaner Notification'}
+    {'value': 'cleaner', 'label': 'Cleaner Notification'},
+    {'value': 'maintenance', 'label': 'Maintenance Notification'}
 ]
