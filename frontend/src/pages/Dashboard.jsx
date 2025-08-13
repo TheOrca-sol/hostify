@@ -26,6 +26,9 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('overview')
   const [occupancyPeriod, setOccupancyPeriod] = useState('month')
   const [occupancyData, setOccupancyData] = useState(null)
+  const [customDateRange, setCustomDateRange] = useState(false)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const [properties, setProperties] = useState([])
   const [reservations, setReservations] = useState([])
   const [showCalendarView, setShowCalendarView] = useState(false)
@@ -78,9 +81,17 @@ export default function Dashboard() {
     }
   };
 
-  const loadOccupancyData = async (period) => {
+  const loadOccupancyData = async (period, customStartDate = null, customEndDate = null) => {
     try {
-      const result = await api.getOccupancyData(period);
+      let result;
+      if (customDateRange && customStartDate && customEndDate) {
+        // Load custom date range data
+        result = await api.getOccupancyData(period, customStartDate, customEndDate);
+      } else {
+        // Load current period data
+        result = await api.getOccupancyData(period);
+      }
+      
       if (result.success) {
         setOccupancyData(result.occupancy);
       } else {
@@ -105,12 +116,16 @@ export default function Dashboard() {
     }
   };
 
-  // Load occupancy data when period changes
+  // Load occupancy data when period or custom date range changes
   useEffect(() => {
     if (stats.occupancy) {
-      loadOccupancyData(occupancyPeriod);
+      if (customDateRange && startDate && endDate) {
+        loadOccupancyData(occupancyPeriod, startDate, endDate);
+      } else {
+        loadOccupancyData(occupancyPeriod);
+      }
     }
-  }, [occupancyPeriod, stats.occupancy]);
+  }, [occupancyPeriod, customDateRange, startDate, endDate, stats.occupancy]);
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: BarChart },
@@ -333,15 +348,36 @@ export default function Dashboard() {
                         const formatTimestamp = (timestamp) => {
                           const date = new Date(timestamp);
                           const now = new Date();
-                          const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
                           
-                          if (diffInHours < 1) {
+                          const diffInMs = now.getTime() - date.getTime();
+                          const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+                          const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+                          const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+                          
+                          // Check if it's today
+                          const isToday = now.toDateString() === date.toDateString();
+                          // Check if it's yesterday
+                          const yesterday = new Date(now);
+                          yesterday.setDate(yesterday.getDate() - 1);
+                          const isYesterday = yesterday.toDateString() === date.toDateString();
+                          
+                          if (diffInMinutes < 1) {
                             return 'Just now';
-                          } else if (diffInHours < 24) {
-                            return `${diffInHours}h ago`;
+                          } else if (diffInMinutes < 60) {
+                            return `${diffInMinutes}m ago`;
+                          } else if (isToday) {
+                            return `Today ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                          } else if (isYesterday) {
+                            return `Yesterday ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                          } else if (diffInDays < 7) {
+                            const dayName = date.toLocaleDateString([], { weekday: 'short' });
+                            return `${dayName} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
                           } else {
-                            const diffInDays = Math.floor(diffInHours / 24);
-                            return `${diffInDays}d ago`;
+                            return date.toLocaleDateString([], { 
+                              month: 'short', 
+                              day: 'numeric',
+                              ...(date.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {})
+                            });
                           }
                         };
 
@@ -392,6 +428,92 @@ export default function Dashboard() {
                        </div>
                        
                        <div className="flex items-center space-x-2">
+                         <label className="text-sm text-gray-600">Date Range:</label>
+                         <div className="flex items-center space-x-2">
+                           <button
+                             onClick={() => setCustomDateRange(false)}
+                             className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                               !customDateRange
+                                 ? 'bg-blue-100 text-blue-700'
+                                 : 'text-gray-600 hover:text-gray-900'
+                             }`}
+                           >
+                             Current
+                           </button>
+                           <button
+                             onClick={() => setCustomDateRange(true)}
+                             className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                               customDateRange
+                                 ? 'bg-blue-100 text-blue-700'
+                                 : 'text-gray-600 hover:text-gray-900'
+                             }`}
+                           >
+                             Custom
+                           </button>
+                         </div>
+                       </div>
+                       
+                       {customDateRange && (
+                         <div className="flex items-center space-x-2">
+                           <input
+                             type="date"
+                             value={startDate}
+                             onChange={(e) => setStartDate(e.target.value)}
+                             className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                             placeholder="Start Date"
+                           />
+                           <span className="text-gray-500">to</span>
+                           <input
+                             type="date"
+                             value={endDate}
+                             onChange={(e) => setEndDate(e.target.value)}
+                             className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                             placeholder="End Date"
+                           />
+                           
+                           {/* Quick preset buttons */}
+                           <div className="flex items-center space-x-1 ml-2">
+                             <button
+                               onClick={() => {
+                                 const today = new Date();
+                                 const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                                 const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+                                 setStartDate(lastMonth.toISOString().split('T')[0]);
+                                 setEndDate(lastMonthEnd.toISOString().split('T')[0]);
+                               }}
+                               className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700"
+                             >
+                               Last Month
+                             </button>
+                             <button
+                               onClick={() => {
+                                 const today = new Date();
+                                 const lastQuarter = new Date(today.getFullYear(), Math.floor((today.getMonth() - 3) / 3) * 3, 1);
+                                 const lastQuarterEnd = new Date(today.getFullYear(), Math.floor((today.getMonth() - 3) / 3) * 3 + 3, 0);
+                                 setStartDate(lastQuarter.toISOString().split('T')[0]);
+                                 setEndDate(lastQuarterEnd.toISOString().split('T')[0]);
+                               }}
+                               className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700"
+                             >
+                               Last Quarter
+                             </button>
+                             <button
+                               onClick={() => {
+                                 const today = new Date();
+                                 const lastYear = new Date(today.getFullYear() - 1, 0, 1);
+                                 const lastYearEnd = new Date(today.getFullYear() - 1, 11, 31);
+                                 setStartDate(lastYear.toISOString().split('T')[0]);
+                                 setEndDate(lastYearEnd.toISOString().split('T')[0]);
+                               }}
+                               className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded text-gray-700"
+                             >
+                               Last Year
+                             </button>
+                           </div>
+                         </div>
+                       )}
+                       
+                       <div className="flex items-center space-x-2">
                          <label className="text-sm text-gray-600">View:</label>
                          <div className="bg-gray-100 p-1 rounded-lg flex">
                            <button
@@ -434,14 +556,15 @@ export default function Dashboard() {
                        /* Charts View */
                        <div className="space-y-6">
                          {/* Summary Cards */}
-                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                         <div className={`grid gap-6 ${occupancyData.isCustomRange ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 lg:grid-cols-3'}`}>
                            {/* Overall Occupancy */}
                            <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 text-white">
                              <div className="flex items-center justify-between">
                                <div>
                                  <h4 className="text-lg font-medium">Overall Occupancy</h4>
                                  <p className="text-blue-100 text-sm">
-                                   {occupancyPeriod === 'week' ? 'Weekly' : 
+                                   {occupancyData.isCustomRange ? 'Custom Range' :
+                                    occupancyPeriod === 'week' ? 'Weekly' : 
                                     occupancyPeriod === 'month' ? 'Monthly' : 
                                     occupancyPeriod === 'quarter' ? 'Quarterly' : 'Yearly'} average
                                  </p>
@@ -482,37 +605,39 @@ export default function Dashboard() {
                              </div>
                            </div>
 
-                           {/* Future Period */}
-                           <div className="bg-white border-2 border-gray-200 rounded-lg p-6">
-                             <div className="flex items-center justify-between mb-4">
-                               <h4 className="text-lg font-medium text-gray-900">
-                                 {occupancyData.futurePeriod?.label || occupancyData.nextMonth?.month || 'Next Period'}
-                               </h4>
-                               <div className="text-2xl font-bold text-blue-600">
-                                 {occupancyData.futurePeriod?.rate || occupancyData.nextMonth?.rate || 0}%
+                           {/* Future Period - Only show for non-custom ranges */}
+                           {!occupancyData.isCustomRange && (
+                             <div className="bg-white border-2 border-gray-200 rounded-lg p-6">
+                               <div className="flex items-center justify-between mb-4">
+                                 <h4 className="text-lg font-medium text-gray-900">
+                                   {occupancyData.futurePeriod?.label || occupancyData.nextMonth?.month || 'Next Period'}
+                                 </h4>
+                                 <div className="text-2xl font-bold text-blue-600">
+                                   {occupancyData.futurePeriod?.rate || occupancyData.nextMonth?.rate || 0}%
+                                 </div>
+                               </div>
+                               <div className="space-y-2">
+                                 <div className="flex justify-between text-sm">
+                                   <span className="text-gray-600">Booked Nights:</span>
+                                   <span className="font-medium">
+                                     {occupancyData.futurePeriod?.bookedNights || occupancyData.nextMonth?.bookedNights || 0}
+                                   </span>
+                                 </div>
+                                 <div className="flex justify-between text-sm">
+                                   <span className="text-gray-600">Total Available:</span>
+                                   <span className="font-medium">
+                                     {occupancyData.futurePeriod?.totalNights || occupancyData.nextMonth?.totalNights || 0}
+                                   </span>
+                                 </div>
+                                 <div className="w-full bg-gray-200 rounded-full h-2">
+                                   <div 
+                                     className="bg-blue-600 h-2 rounded-full" 
+                                     style={{ width: `${occupancyData.futurePeriod?.rate || occupancyData.nextMonth?.rate || 0}%` }}
+                                   ></div>
+                                 </div>
                                </div>
                              </div>
-                             <div className="space-y-2">
-                               <div className="flex justify-between text-sm">
-                                 <span className="text-gray-600">Booked Nights:</span>
-                                 <span className="font-medium">
-                                   {occupancyData.futurePeriod?.bookedNights || occupancyData.nextMonth?.bookedNights || 0}
-                                 </span>
-                               </div>
-                               <div className="flex justify-between text-sm">
-                                 <span className="text-gray-600">Total Available:</span>
-                                 <span className="font-medium">
-                                   {occupancyData.futurePeriod?.totalNights || occupancyData.nextMonth?.totalNights || 0}
-                                 </span>
-                               </div>
-                               <div className="w-full bg-gray-200 rounded-full h-2">
-                                 <div 
-                                   className="bg-blue-600 h-2 rounded-full" 
-                                   style={{ width: `${occupancyData.futurePeriod?.rate || occupancyData.nextMonth?.rate || 0}%` }}
-                                 ></div>
-                               </div>
-                             </div>
-                           </div>
+                           )}
                          </div>
 
                          {/* Property Performance Chart */}
@@ -666,15 +791,36 @@ export default function Dashboard() {
                           const formatTimestamp = (timestamp) => {
                             const date = new Date(timestamp);
                             const now = new Date();
-                            const diffInHours = Math.floor((now - date) / (1000 * 60 * 60));
                             
-                            if (diffInHours < 1) {
+                            const diffInMs = now.getTime() - date.getTime();
+                            const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+                            const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+                            const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+                            
+                            // Check if it's today
+                            const isToday = now.toDateString() === date.toDateString();
+                            // Check if it's yesterday
+                            const yesterday = new Date(now);
+                            yesterday.setDate(yesterday.getDate() - 1);
+                            const isYesterday = yesterday.toDateString() === date.toDateString();
+                            
+                            if (diffInMinutes < 1) {
                               return 'Just now';
-                            } else if (diffInHours < 24) {
-                              return `${diffInHours}h ago`;
+                            } else if (diffInMinutes < 60) {
+                              return `${diffInMinutes}m ago`;
+                            } else if (isToday) {
+                              return `Today ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                            } else if (isYesterday) {
+                              return `Yesterday ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                            } else if (diffInDays < 7) {
+                              const dayName = date.toLocaleDateString([], { weekday: 'short' });
+                              return `${dayName} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
                             } else {
-                              const diffInDays = Math.floor(diffInHours / 24);
-                              return `${diffInDays}d ago`;
+                              return date.toLocaleDateString([], { 
+                                month: 'short', 
+                                day: 'numeric',
+                                ...(date.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {})
+                              });
                             }
                           };
 
