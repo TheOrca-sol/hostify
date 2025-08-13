@@ -794,7 +794,7 @@ def delete_property(property_id, user_id):
         print(f"Database error: {str(e)}")
         return False
 
-def calculate_occupancy_rates(user_id, current_date, period='month'):
+def calculate_occupancy_rates(user_id, current_date, period='month', custom_end_date=None):
     """
     Calculate occupancy rates for user's properties for different periods.
     Returns current period, future period, and per-property breakdown.
@@ -803,6 +803,7 @@ def calculate_occupancy_rates(user_id, current_date, period='month'):
         user_id: User UUID
         current_date: Reference date
         period: 'week', 'month', 'quarter', or 'year'
+        custom_end_date: Optional custom end date for custom date range
     """
     try:
         from calendar import monthrange
@@ -811,7 +812,19 @@ def calculate_occupancy_rates(user_id, current_date, period='month'):
         user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
         
         # Calculate date ranges based on period
-        if period == 'week':
+        if custom_end_date:
+            # Custom date range - use current_date as start and custom_end_date as end
+            current_start = current_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            current_end = custom_end_date.replace(hour=23, minute=59, second=59)
+            
+            # For custom ranges, we only show one period (no future period)
+            future_start = current_end + timedelta(days=1)
+            future_end = future_start + timedelta(days=1)  # Dummy future period
+            
+            current_label = f"{current_start.strftime('%b %d, %Y')} - {current_end.strftime('%b %d, %Y')}"
+            future_label = "Custom Range"
+            
+        elif period == 'week':
             # Current week (Monday to Sunday)
             days_since_monday = current_date.weekday()
             current_start = (current_date - timedelta(days=days_since_monday)).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -942,8 +955,8 @@ def calculate_occupancy_rates(user_id, current_date, period='month'):
         future_booked_nights = len(future_occupied_dates)
         
         # Calculate total available nights (properties * nights in period)
-        current_period_nights = (current_end.date() - current_start.date()).days
-        future_period_nights = (future_end.date() - future_start.date()).days
+        current_period_nights = (current_end.date() - current_start.date()).days + 1
+        future_period_nights = (future_end.date() - future_start.date()).days + 1
         current_total_nights = total_properties * current_period_nights
         future_total_nights = total_properties * future_period_nights
         
@@ -987,18 +1000,24 @@ def calculate_occupancy_rates(user_id, current_date, period='month'):
                         current_date_iter += timedelta(days=1)
             
             prop_booked_nights = len(prop_occupied_dates)
-            prop_rate = round((prop_booked_nights / current_period_nights) * 100, 1) if current_period_nights > 0 else 0
+            prop_total_nights = current_period_nights  # This already has +1 applied above
+            prop_rate = round((prop_booked_nights / prop_total_nights) * 100, 1) if prop_total_nights > 0 else 0
             
             property_occupancy.append({
                 'id': str(prop.id),
                 'name': prop.name,
                 'rate': prop_rate,
                 'bookedNights': prop_booked_nights,
-                'totalNights': current_period_nights
+                'totalNights': prop_total_nights
             })
         
-        # Calculate overall occupancy (average of current and future periods)
-        overall_rate = round((current_rate + future_rate) / 2, 1)
+        # Calculate overall occupancy
+        if custom_end_date:
+            # For custom ranges, overall is just the current period rate
+            overall_rate = current_rate
+        else:
+            # For standard periods, average of current and future periods
+            overall_rate = round((current_rate + future_rate) / 2, 1)
         
         return {
             'currentPeriod': {
@@ -1016,6 +1035,7 @@ def calculate_occupancy_rates(user_id, current_date, period='month'):
             'properties': property_occupancy,
             'overall': overall_rate,
             'period': period,
+            'isCustomRange': custom_end_date is not None,
             # Keep backward compatibility
             'currentMonth': {
                 'rate': current_rate,
