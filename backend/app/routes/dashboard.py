@@ -280,7 +280,7 @@ def get_recent_activity_route():
 @require_auth
 def get_occupancy_data():
     """
-    Get occupancy data for a specific period
+    Get occupancy data for a specific period or custom date range
     """
     try:
         # Get the current user using the same pattern as stats endpoint
@@ -296,11 +296,30 @@ def get_occupancy_data():
         if period not in valid_periods:
             return jsonify({'success': False, 'error': f'Invalid period. Must be one of: {valid_periods}'}), 400
 
-        # Calculate occupancy for the specified period
+        # Check for custom date range
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+        
         from ..utils.database import calculate_occupancy_rates
         from datetime import datetime, timezone
         
-        occupancy_data = calculate_occupancy_rates(user.id, datetime.now(timezone.utc), period)
+        if start_date_str and end_date_str:
+            # Use custom date range
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+                end_date = datetime.strptime(end_date_str, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+                
+                # Validate date range
+                if start_date >= end_date:
+                    return jsonify({'success': False, 'error': 'Start date must be before end date'}), 400
+                
+                # Calculate occupancy for custom date range
+                occupancy_data = calculate_occupancy_rates(user.id, start_date, period, custom_end_date=end_date)
+            except ValueError:
+                return jsonify({'success': False, 'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        else:
+            # Use current period
+            occupancy_data = calculate_occupancy_rates(user.id, datetime.now(timezone.utc), period)
         
         return jsonify({
             'success': True,
