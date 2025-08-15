@@ -22,9 +22,23 @@ logger.debug("FIREBASE_SERVICE_ACCOUNT_PATH: %s", os.getenv('FIREBASE_SERVICE_AC
 
 # Initialize Firebase Admin SDK
 try:
-    # Try to use JSON from environment variable first
-    cred_json = os.getenv('FIREBASE_ADMIN_SDK_JSON')
-    if cred_json:
+    # Try individual Firebase config variables first (more reliable for Railway)
+    firebase_project_id = os.getenv('FIREBASE_PROJECT_ID')
+    firebase_private_key = os.getenv('FIREBASE_PRIVATE_KEY')
+    firebase_client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
+    
+    if firebase_project_id and firebase_private_key and firebase_client_email:
+        logger.debug("Using individual Firebase environment variables")
+        cred_dict = {
+            "type": "service_account",
+            "project_id": firebase_project_id,
+            "private_key": firebase_private_key.replace('\\n', '\n'),
+            "client_email": firebase_client_email
+        }
+        cred = credentials.Certificate(cred_dict)
+    # Fallback to JSON from environment variable
+    elif os.getenv('FIREBASE_ADMIN_SDK_JSON'):
+        cred_json = os.getenv('FIREBASE_ADMIN_SDK_JSON')
         logger.debug("Using FIREBASE_ADMIN_SDK_JSON")
         # Clean and validate the JSON string
         try:
