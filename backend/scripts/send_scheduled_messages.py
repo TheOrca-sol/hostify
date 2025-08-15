@@ -38,7 +38,7 @@ def send_due_messages():
             print(f"Found {len(due_messages)} messages to send.")
             
             for message in due_messages:
-                recipient_info = f"guest {message.guest_id}" if message.guest_id else f"{message.template.type} team"
+                recipient_info = f"guest {message.guest_id}" if message.guest_id else f"{message.template.template_type} team"
                 print(f"  -> Sending message {message.id} for {recipient_info}...")
                 
                 # Populate template variables
@@ -72,11 +72,11 @@ def send_due_messages():
                     content = content.replace('{{' + key + '}}', str(value))
                 
                 # Determine recipients based on message type
-                if message.template.type in ['cleaner', 'maintenance']:
+                if message.template.template_type in ['cleaner', 'maintenance']:
                     # Send to team members with appropriate role
                     from app.models import PropertyTeamMember
                     
-                    target_role = message.template.type  # 'cleaner' or 'maintenance'
+                    target_role = message.template.template_type  # 'cleaner' or 'maintenance'
                     team_members = PropertyTeamMember.query.filter(
                         PropertyTeamMember.property_id == property.id,
                         PropertyTeamMember.role == target_role,

@@ -296,7 +296,7 @@ class MessageScheduler:
             templates = MessageTemplate.query.filter(
                 and_(
                     MessageTemplate.user_id == user_id,
-                    MessageTemplate.type.in_([
+                    MessageTemplate.template_type.in_([
                         'verification_request',
                         'verification_reminder',
                         'verification_complete',
@@ -324,7 +324,7 @@ class MessageScheduler:
                     'contract_ready': timedelta(minutes=5),  # 5 minutes after verification
                     'contract_reminder': timedelta(days=2),  # 2 days after contract ready
                     'contract_signed': timedelta(minutes=0)  # Immediate after signing
-                }.get(template.type)
+                }.get(template.template_type)
                 
                 if delay is not None:
                     scheduled_message = ScheduledMessage(
@@ -362,7 +362,7 @@ class MessageScheduler:
             templates = MessageTemplate.query.filter(
                 and_(
                     MessageTemplate.user_id == user_id,
-                    MessageTemplate.type.in_([
+                    MessageTemplate.template_type.in_([
                         'welcome',
                         'checkin',
                         'during_stay',
@@ -395,13 +395,13 @@ class MessageScheduler:
                     'review_request': check_out + timedelta(days=1),  # Day after check-out
                     'cleaner': check_out,  # At check-out time
                     'maintenance': check_out  # At check-out time (or could be different timing)
-                }.get(template.type)
+                }.get(template.template_type)
                 
                 if schedule_time and schedule_time > now:
                     # Create scheduled message
                     # For cleaner/maintenance messages, don't assign guest_id
                     guest_id = None
-                    if template.type not in ['cleaner', 'maintenance']:
+                    if template.template_type not in ['cleaner', 'maintenance']:
                         guest_id = reservation.guests[0].id if reservation.guests else None
                     
                     scheduled_message = ScheduledMessage(

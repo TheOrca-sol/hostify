@@ -26,10 +26,9 @@ def get_contract_templates():
             return jsonify({'success': False, 'error': 'User not found'}), 404
 
         logging.debug(f"User object from database: {user}")
-        logging.debug(f"User ID to be used in query: {user['id']}")
+        logging.debug(f"User ID to be used in query: {user.id}")
 
-        user_uuid = uuid.UUID(user['id']) # Convert string to UUID object
-        templates = ContractTemplate.query.filter_by(user_id=user_uuid).all()
+        templates = ContractTemplate.query.filter_by(user_id=user.id).all()
         return jsonify({'success': True, 'templates': [template.to_dict() for template in templates]})
     except Exception as e:
         logging.error(f"Error in get_contract_templates: {e}")
@@ -49,7 +48,7 @@ def create_contract_template():
             return jsonify({'success': False, 'error': 'Missing required fields'}), 400
 
         template = ContractTemplate(
-            user_id=uuid.UUID(user['id']),
+            user_id=user.id,
             name=data['name'],
             template_content=data['template_content'],
             language=data.get('language', 'en'),
@@ -71,8 +70,7 @@ def update_contract_template(template_id):
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
 
-        user_uuid = uuid.UUID(user['id'])
-        template = ContractTemplate.query.filter_by(id=uuid.UUID(template_id), user_id=user_uuid).first_or_404()
+        template = ContractTemplate.query.filter_by(id=uuid.UUID(template_id), user_id=user.id).first_or_404()
         data = request.get_json()
         if not data:
             return jsonify({'success': False, 'error': 'No update data provided'}), 400
@@ -97,8 +95,7 @@ def delete_contract_template(template_id):
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
 
-        user_uuid = uuid.UUID(user['id'])
-        template = ContractTemplate.query.filter_by(id=uuid.UUID(template_id), user_id=user_uuid).first_or_404()
+        template = ContractTemplate.query.filter_by(id=uuid.UUID(template_id), user_id=user.id).first_or_404()
         db.session.delete(template)
         db.session.commit()
         return jsonify({'success': True, 'message': 'Template deleted successfully'})
