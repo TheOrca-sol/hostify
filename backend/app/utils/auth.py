@@ -26,10 +26,29 @@ try:
     cred_json = os.getenv('FIREBASE_ADMIN_SDK_JSON')
     if cred_json:
         logger.debug("Using FIREBASE_ADMIN_SDK_JSON")
-        # Handle escaped newlines and quotes in the JSON string
-        cred_json = cred_json.replace('\\n', '\n').replace('\\"', '"')
-        cred_dict = json.loads(cred_json)
-        cred = credentials.Certificate(cred_dict)
+        # Clean and validate the JSON string
+        try:
+            # First try direct parsing
+            cred_dict = json.loads(cred_json)
+            cred = credentials.Certificate(cred_dict)
+        except json.JSONDecodeError:
+            # If that fails, try handling escaped characters
+            cred_json_cleaned = cred_json.replace('\\n', '\n').replace('\\"', '"')
+            try:
+                cred_dict = json.loads(cred_json_cleaned)
+                cred = credentials.Certificate(cred_dict)
+            except json.JSONDecodeError as e:
+                logger.error("Failed to parse Firebase JSON even after cleaning: %s", str(e))
+                logger.error("JSON string length: %d, error at position: %d", len(cred_json), getattr(e, 'pos', -1))
+                if hasattr(e, 'pos') and e.pos < len(cred_json):
+                    logger.error("Character at error position: %r", cred_json[e.pos:e.pos+10])
+                # Fall back to service account file
+                logger.warning("Falling back to service account file due to JSON parsing error")
+                service_account_path = os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH')
+                if service_account_path and os.path.exists(service_account_path):
+                    cred = credentials.Certificate(service_account_path)
+                else:
+                    raise
     else:
         logger.debug("Falling back to FIREBASE_SERVICE_ACCOUNT_PATH")
         service_account_path = os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH')
