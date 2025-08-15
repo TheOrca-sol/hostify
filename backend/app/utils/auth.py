@@ -26,6 +26,8 @@ try:
     cred_json = os.getenv('FIREBASE_ADMIN_SDK_JSON')
     if cred_json:
         logger.debug("Using FIREBASE_ADMIN_SDK_JSON")
+        # Handle escaped newlines and quotes in the JSON string
+        cred_json = cred_json.replace('\\n', '\n').replace('\\"', '"')
         cred_dict = json.loads(cred_json)
         cred = credentials.Certificate(cred_dict)
     else:
