@@ -22,6 +22,7 @@ from .routes.team import team_bp
 from .routes.teams import teams_bp
 from .routes.sms_auth import sms_auth_bp
 import os
+from datetime import datetime
 
 def create_app():
     app = Flask(__name__)
@@ -32,9 +33,15 @@ def create_app():
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'a-super-secret-key-for-dev')
     
     # Configure CORS
+    allowed_origins = [
+        "http://localhost:3000",  # Development
+        "https://hostify-frontend.vercel.app",  # Production (update with your actual domain)
+        os.getenv('FRONTEND_URL', 'http://localhost:3000')  # Environment variable
+    ]
+    
     CORS(app, resources={
         r"/api/*": {
-            "origins": ["http://localhost:3000"],
+            "origins": allowed_origins,
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization"],
             "supports_credentials": True
@@ -44,6 +51,11 @@ def create_app():
     # Initialize extensions
     db.init_app(app)
     Migrate(app, db)
+    
+    # Health check endpoint for Railway
+    @app.route('/health')
+    def health_check():
+        return {'status': 'healthy', 'timestamp': datetime.now().isoformat()}, 200
     
     # Register blueprints
     app.register_blueprint(guests_bp, url_prefix='/api')
