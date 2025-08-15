@@ -21,9 +21,10 @@ urllib3==2.2.3
 twilio==9.3.7
 sendgrid==6.11.0
 
-# PDF Generation
+# PDF Generation & OCR
 reportlab==4.2.5
 Pillow==11.0.0
+pytesseract==0.3.13
 
 # Utilities
 python-dotenv==1.0.1
