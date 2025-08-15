@@ -19,6 +19,7 @@ urllib3==2.2.3
 
 # SMS & Communication
 twilio==9.3.7
+sendgrid==6.11.0
 
 # PDF Generation
 reportlab==4.2.5
