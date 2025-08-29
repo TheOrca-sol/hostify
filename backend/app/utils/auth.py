@@ -22,12 +22,51 @@ logger.debug("FIREBASE_SERVICE_ACCOUNT_PATH: %s", os.getenv('FIREBASE_SERVICE_AC
 
 # Initialize Firebase Admin SDK
 try:
-    # Try to use JSON from environment variable first
-    cred_json = os.getenv('FIREBASE_ADMIN_SDK_JSON')
-    if cred_json:
-        logger.debug("Using FIREBASE_ADMIN_SDK_JSON")
-        cred_dict = json.loads(cred_json)
+    # Try individual Firebase config variables first (more reliable for Railway)
+    firebase_project_id = os.getenv('FIREBASE_PROJECT_ID')
+    firebase_private_key = os.getenv('FIREBASE_PRIVATE_KEY')
+    firebase_client_email = os.getenv('FIREBASE_CLIENT_EMAIL')
+    
+    if firebase_project_id and firebase_private_key and firebase_client_email:
+        logger.debug("Using individual Firebase environment variables")
+        cred_dict = {
+            "type": "service_account",
+            "project_id": firebase_project_id,
+            "private_key": firebase_private_key.replace('\\n', '\n'),
+            "client_email": firebase_client_email,
+            "client_id": "",
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs"
+        }
         cred = credentials.Certificate(cred_dict)
+    # Fallback to JSON from environment variable
+    elif os.getenv('FIREBASE_ADMIN_SDK_JSON'):
+        cred_json = os.getenv('FIREBASE_ADMIN_SDK_JSON')
+        logger.debug("Using FIREBASE_ADMIN_SDK_JSON")
+        # Clean and validate the JSON string
+        try:
+            # First try direct parsing
+            cred_dict = json.loads(cred_json)
+            cred = credentials.Certificate(cred_dict)
+        except json.JSONDecodeError:
+            # If that fails, try handling escaped characters
+            cred_json_cleaned = cred_json.replace('\\n', '\n').replace('\\"', '"')
+            try:
+                cred_dict = json.loads(cred_json_cleaned)
+                cred = credentials.Certificate(cred_dict)
+            except json.JSONDecodeError as e:
+                logger.error("Failed to parse Firebase JSON even after cleaning: %s", str(e))
+                logger.error("JSON string length: %d, error at position: %d", len(cred_json), getattr(e, 'pos', -1))
+                if hasattr(e, 'pos') and e.pos < len(cred_json):
+                    logger.error("Character at error position: %r", cred_json[e.pos:e.pos+10])
+                # Fall back to service account file
+                logger.warning("Falling back to service account file due to JSON parsing error")
+                service_account_path = os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH')
+                if service_account_path and os.path.exists(service_account_path):
+                    cred = credentials.Certificate(service_account_path)
+                else:
+                    raise
     else:
         logger.debug("Falling back to FIREBASE_SERVICE_ACCOUNT_PATH")
         service_account_path = os.getenv('FIREBASE_SERVICE_ACCOUNT_PATH')
