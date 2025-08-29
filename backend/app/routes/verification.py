@@ -21,13 +21,33 @@ verification_bp = Blueprint('verification', __name__)
 def send_verification_link(guest_id):
     """Generate and send a verification link via SMS."""
     try:
+        print(f"DEBUG: Attempting to send verification link for guest_id: {guest_id}")
+        
         user = get_user_by_firebase_uid(g.user_id)
         if not user:
+            print(f"DEBUG: User not found for firebase_uid: {g.user_id}")
             return jsonify({'success': False, 'error': 'User not found'}), 404
 
         guest = Guest.query.get(guest_id)
-        if not guest or str(guest.reservation.property.user_id) != user.id:
-            return jsonify({'success': False, 'error': 'Guest not found or access denied'}), 404
+        print(f"DEBUG: Guest query result: {guest}")
+        
+        if not guest:
+            print(f"DEBUG: Guest {guest_id} not found in database")
+            return jsonify({'success': False, 'error': 'Guest not found'}), 404
+            
+        if not guest.reservation:
+            print(f"DEBUG: Guest {guest_id} has no reservation")
+            return jsonify({'success': False, 'error': 'Guest has no reservation'}), 404
+            
+        if not guest.reservation.property:
+            print(f"DEBUG: Guest {guest_id} reservation has no property")
+            return jsonify({'success': False, 'error': 'Guest reservation has no property'}), 404
+            
+        print(f"DEBUG: Guest property user_id: {guest.reservation.property.user_id}, Current user id: {user.id}")
+        
+        if str(guest.reservation.property.user_id) != user.id:
+            print(f"DEBUG: Access denied - property belongs to different user")
+            return jsonify({'success': False, 'error': 'Access denied'}), 403
 
         if not guest.phone:
             return jsonify({'success': False, 'error': 'Guest has no phone number on file.'}), 400
