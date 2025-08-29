@@ -11,6 +11,7 @@ import GuestVerification from './pages/GuestVerification'
 import ContractTemplates from './pages/ContractTemplates'
 import MessageTemplates from './pages/MessageTemplates'
 import ContractSigning from './components/ContractSigning'
+import ContractSignedSuccess from './pages/ContractSignedSuccess'
 import InvitationAcceptance from './pages/InvitationAcceptance'
 import TeamDetails from './pages/TeamDetails'
 
@@ -48,6 +49,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/verify/:token" element={<GuestVerification />} />
             <Route path="/contract/sign/:token" element={<ContractSigning mode="sign" />} />
+            <Route path="/contract-signed-success" element={<ContractSignedSuccess />} />
             <Route path="/invite/:token" element={<InvitationAcceptance />} />
             
             {/* Protected Routes */}

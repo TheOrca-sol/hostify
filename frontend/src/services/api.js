@@ -623,6 +623,21 @@ export const api = {
     }
   },
 
+  async getContractByToken(token) {
+    try {
+      // No auth token needed - this is for guest access via verification token
+      const response = await fetch(`${API_BASE_URL}/contracts/sign/${token}`, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting contract by token:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
   async signContract(contractId, signatureData) {
     try {
       const token = await this.getAuthToken();
@@ -637,6 +652,23 @@ export const api = {
       return await response.json();
     } catch (error) {
       console.error('Error signing contract:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async signContractByToken(token, signatureData) {
+    try {
+      // No auth token needed - this is for guest access via verification token
+      const response = await fetch(`${API_BASE_URL}/contracts/sign/${token}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(signatureData)
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error signing contract by token:', error);
       return { success: false, error: error.message };
     }
   },
