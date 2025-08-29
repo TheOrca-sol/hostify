@@ -111,10 +111,14 @@ with app.app_context():
         template = MessageTemplate(
             user_id=user.id,
             name='Test Template',
-            type='checkin',
-            subject='Your upcoming stay at {{property.name}}',
-            content='Hello {{guest.full_name}},\n\nThis is a reminder about your check-in on {{reservation.check_in}}.\n\nThanks,\n{{user.name}}',
-            channels=['email', 'sms']
+            template_type='check_in',
+            subject='Your upcoming stay at {{property_name}}',
+            content='Hello {{guest_name}},\n\nThis is a reminder about your check-in on {{check_in_date}}.\n\nThanks,\n{{host_name}}',
+            channels=['sms'],
+            trigger_event='check_in',
+            trigger_offset_value=2,
+            trigger_offset_unit='hours',
+            trigger_direction='before'
         )
         db.session.add(template)
         db.session.commit()

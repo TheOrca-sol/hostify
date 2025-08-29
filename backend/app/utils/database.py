@@ -345,6 +345,15 @@ def create_guest(reservation_id, **kwargs):
         
         db.session.add(guest)
         db.session.commit()
+        
+        # Trigger automation after successful guest creation
+        try:
+            from .automation import AutomationService
+            print(f"Triggering automation for guest {guest.id}")
+            AutomationService.schedule_messages_for_guest(guest.id)
+        except Exception as e:
+            print(f"Automation trigger failed: {e}")
+        
         return str(guest.id)
     
     except Exception as e:
