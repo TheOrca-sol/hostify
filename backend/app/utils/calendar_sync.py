@@ -92,13 +92,16 @@ def sync_property_calendar(property):
                     
                     # Create a guest record if we have a guest name
                     if event_data['guest_name']:
-                        guest = Guest(
+                        # Use create_guest function to trigger automation
+                        from .database import create_guest
+                        guest_id = create_guest(
                             reservation_id=reservation.id,
                             full_name=event_data['guest_name'],
                             verification_status='pending',
                             verification_token=str(uuid.uuid4())  # Generate a unique token
                         )
-                        db.session.add(guest)
+                        if guest_id:
+                            print(f"Successfully created guest {guest_id} with automation for reservation {reservation.id}")
                 
                 events_processed += 1
                 
