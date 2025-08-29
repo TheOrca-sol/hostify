@@ -44,8 +44,9 @@ def send_verification_link(guest_id):
             return jsonify({'success': False, 'error': 'Guest reservation has no property'}), 404
             
         print(f"DEBUG: Guest property user_id: {guest.reservation.property.user_id}, Current user id: {user.id}")
+        print(f"DEBUG: Type check - property.user_id type: {type(guest.reservation.property.user_id)}, user.id type: {type(user.id)}")
         
-        if str(guest.reservation.property.user_id) != user.id:
+        if str(guest.reservation.property.user_id) != str(user.id):
             print(f"DEBUG: Access denied - property belongs to different user")
             return jsonify({'success': False, 'error': 'Access denied'}), 403
 
