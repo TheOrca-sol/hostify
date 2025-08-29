@@ -349,10 +349,13 @@ def create_guest(reservation_id, **kwargs):
         # Trigger automation after successful guest creation
         try:
             from .automation import AutomationService
-            print(f"Triggering automation for guest {guest.id}")
-            AutomationService.schedule_messages_for_guest(guest.id)
+            print(f"DEBUG: Triggering automation for guest {guest.id}")
+            result = AutomationService.schedule_messages_for_guest(guest.id)
+            print(f"DEBUG: Automation result: {result}")
         except Exception as e:
-            print(f"Automation trigger failed: {e}")
+            print(f"DEBUG: Automation trigger failed: {e}")
+            import traceback
+            traceback.print_exc()
         
         return str(guest.id)
     

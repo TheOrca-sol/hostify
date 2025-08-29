@@ -22,8 +22,14 @@ class AutomationService:
                 trigger_event=event_type
             ).all()
 
+            print(f"DEBUG: Found {len(templates)} templates for event '{event_type}' for user {user_id}")
             if not templates:
-                print(f"No automated templates found for event '{event_type}' for user {user_id}.")
+                print(f"DEBUG: No automated templates found for event '{event_type}' for user {user_id}.")
+                # Also check if there are any templates at all for this user
+                all_templates = MessageTemplate.query.filter_by(user_id=user_id).all()
+                print(f"DEBUG: User has {len(all_templates)} total templates")
+                for t in all_templates:
+                    print(f"DEBUG: Template: {t.name}, type: {t.template_type}, trigger: {t.trigger_event}, active: {t.active}")
                 return []
 
             scheduled_messages = []
