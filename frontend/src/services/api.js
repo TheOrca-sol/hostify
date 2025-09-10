@@ -1437,6 +1437,68 @@ export const api = {
       console.error('Error getting my invitations:', error);
       return { success: false, error: error.message };
     }
+  },
+
+  // KYC/Didit Integration - Enhanced Guest Verification
+  async startKycVerification(guestId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/kyc/start-verification/${guestId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error starting KYC verification:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getKycStatus(guestId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/kyc/status/${guestId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting KYC status:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Guest Verification - Enhanced with KYC Choice
+  async startGuestKycVerification(verificationToken) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/kyc/start-guest-verification/${verificationToken}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error starting guest KYC verification:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getGuestKycStatus(verificationToken) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/kyc/guest-status/${verificationToken}`, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting guest KYC status:', error);
+      return { success: false, error: error.message };
+    }
   }
 };
 

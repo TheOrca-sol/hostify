@@ -155,9 +155,14 @@ class Guest(db.Model):
     email = db.Column(db.Text, nullable=True)
     document_type = db.Column(db.Text, nullable=True)  # passport, national_id, etc
     id_document_path = db.Column(db.Text, nullable=True)  # Path to uploaded document
-    verification_status = db.Column(db.Text, nullable=False, default='pending')  # pending, verified, expired
+    verification_status = db.Column(db.Text, nullable=False, default='pending')  # pending, verified, expired, in_progress, failed
     verified_at = db.Column(db.DateTime(timezone=True), nullable=True)
     created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    
+    # KYC-related fields for Didit integration
+    kyc_session_id = db.Column(db.Text, nullable=True)  # Didit session ID
+    kyc_confidence_score = db.Column(db.Float, nullable=True)  # Face match confidence score (0-100)
+    kyc_liveness_passed = db.Column(db.Boolean, nullable=True, default=False)  # Liveness detection result
     
     # Relationships
     verification_links = db.relationship('VerificationLink', backref='guest', lazy=True, cascade='all, delete-orphan')
@@ -181,7 +186,11 @@ class Guest(db.Model):
             'verification_status': self.verification_status,
             'verified_at': self.verified_at.isoformat() if self.verified_at else None,
             'created_at': self.created_at.isoformat() if self.created_at else None,
-            'verification_link_sent': len(self.verification_links) > 0
+            'verification_link_sent': len(self.verification_links) > 0,
+            # KYC fields
+            'kyc_session_id': self.kyc_session_id,
+            'kyc_confidence_score': self.kyc_confidence_score,
+            'kyc_liveness_passed': self.kyc_liveness_passed
         }
         
         # Add reservation and property information if reservation exists
