@@ -153,7 +153,7 @@ class AutomationService:
                 template_id=template.id,
                 reservation_id=guest.reservation_id,
                 guest_id=guest.id,
-                status='pending'
+                contract_status='generated'
             )
             
             db.session.add(contract)
