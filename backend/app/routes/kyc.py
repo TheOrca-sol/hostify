@@ -59,26 +59,38 @@ def didit_webhook():
         
         # Process the verification results directly from webhook data
         logger.info(f"Processing webhook data: {webhook_data}")
+        logger.info(f"Full webhook data keys: {list(webhook_data.keys()) if webhook_data else 'None'}")
         
         # Extract guest ID from vendor_data
         vendor_data = webhook_data.get('vendor_data')
+        logger.info(f"Raw vendor_data: {vendor_data}")
         if not vendor_data:
             logger.error("No vendor_data in webhook")
             return jsonify({'error': 'No vendor_data provided'}), 400
             
         guest_id = vendor_data
+        logger.info(f"Parsed guest_id: {guest_id}")
         guest = Guest.query.get(guest_id)
         
         if not guest:
             logger.error(f"Guest {guest_id} not found")
             return jsonify({'error': 'Guest not found'}), 404
         
+        logger.info(f"Found guest: {guest.id}, current status: {guest.verification_status}")
+        
         # Get verification status from webhook
         status = webhook_data.get('status', '').lower()
-        logger.info(f"Webhook status for guest {guest_id}: {status}")
+        logger.info(f"Raw status from webhook: '{webhook_data.get('status')}'")
+        logger.info(f"Webhook status (lowercased) for guest {guest_id}: '{status}'")
+        
+        # Check all possible status fields in webhook data
+        for key, value in webhook_data.items():
+            if 'status' in key.lower():
+                logger.info(f"Found status-related field '{key}': {value}")
         
         # Update guest based on verification status
-        if status in ['completed', 'passed', 'verified', 'success']:
+        logger.info(f"Checking if status '{status}' is in ['completed', 'passed', 'verified', 'success', 'approved', 'complete']")
+        if status in ['completed', 'passed', 'verified', 'success', 'approved', 'complete']:
             guest.verification_status = 'verified'
             guest.verified_at = datetime.now()
             
@@ -112,9 +124,17 @@ def didit_webhook():
             logger.info(f"Guest {guest_id} failed Didit KYC verification")
         else:
             # For other statuses, just log them
-            logger.info(f"Guest {guest_id} status updated to: {status}")
+            logger.info(f"Guest {guest_id} received unhandled status: '{status}' - no status update applied")
+            logger.info(f"Available status options: verified=['completed', 'passed', 'verified', 'success', 'approved', 'complete'], failed=['failed', 'rejected', 'error']")
         
-        db.session.commit()
+        logger.info(f"About to commit database changes. Guest {guest_id} status before commit: {guest.verification_status}")
+        try:
+            db.session.commit()
+            logger.info(f"Database commit successful. Guest {guest_id} status after commit: {guest.verification_status}")
+        except Exception as e:
+            logger.error(f"Database commit failed for guest {guest_id}: {str(e)}")
+            db.session.rollback()
+            raise
         
         return jsonify({
             'success': True,
@@ -135,9 +155,8 @@ def start_kyc_verification(guest_id):
         if not guest:
             return jsonify({'success': False, 'error': 'Guest not found'}), 404
         
-        # Create webhook URL (you'll need to update this with your actual domain)
-        # For local development
-        callback_url = f"{request.url_root.rstrip('/')}/api/kyc/webhook"
+        # Create callback URL for user redirect (webhook is configured separately in Didit dashboard)
+        callback_url = f"{request.url_root.rstrip('/')}/api/verification-complete"
         
         # Create Didit verification session
         result = didit_service.create_verification_session(
@@ -224,7 +243,7 @@ def start_guest_kyc_verification(verification_token):
         if not guest:
             return jsonify({'success': False, 'error': 'Guest not found'}), 404
         
-        # Use completion page as callback URL
+        # Use completion page as callback URL (for user redirect)
         callback_url = f"{request.url_root.rstrip('/')}/api/verification-complete"
         
         # Create Didit verification session
@@ -330,48 +349,4 @@ def get_guest_kyc_status(verification_token):
         logger.error(f"Error getting guest KYC status: {str(e)}")
         return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
-@kyc_bp.route('/kyc/mark-completed/<verification_token>', methods=['POST'])
-def mark_kyc_completed(verification_token):
-    """
-    Fallback endpoint to mark KYC as completed when status polling fails
-    """
-    try:
-        # Find guest by verification token
-        from ..models import VerificationLink
-        verification_link = VerificationLink.query.filter_by(
-            token=verification_token,
-            status='sent'
-        ).first()
-        
-        if not verification_link:
-            return jsonify({'success': False, 'error': 'Invalid verification token'}), 404
-        
-        guest = verification_link.guest
-        if not guest:
-            return jsonify({'success': False, 'error': 'Guest not found'}), 404
-        
-        # Only update if still in progress (avoid overwriting actual webhook updates)
-        if guest.verification_status == 'in_progress':
-            guest.verification_status = 'verified'
-            guest.verified_at = datetime.now()
-            db.session.commit()
-            
-            logger.info(f"Fallback: Marked guest {guest.id} as verified after timeout")
-            
-            # Trigger contract generation and schedule all automated messages
-            try:
-                from ..utils.automation import AutomationService
-                AutomationService.schedule_messages_for_guest(str(guest.id))
-            except Exception as e:
-                logger.error(f"Failed to trigger automation: {str(e)}")
-        
-        return jsonify({
-            'success': True,
-            'verification_status': guest.verification_status,
-            'message': 'Verification status updated successfully'
-        })
-        
-    except Exception as e:
-        logger.error(f"Error marking KYC as completed: {str(e)}")
-        return jsonify({'success': False, 'error': 'Internal server error'}), 500
 

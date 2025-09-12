@@ -157,8 +157,8 @@ const GuestVerification = () => {
         setKycSessionUrl(response.verification_url);
         setStep('kyc');
         toast.success('KYC verification session created! Please follow the instructions.');
-        // Start polling for status updates
-        startStatusPolling();
+        // Wait for webhook to update status
+        waitForWebhookUpdate();
       } else {
         toast.error(response.error || 'Failed to start KYC verification');
       }
@@ -170,63 +170,11 @@ const GuestVerification = () => {
     }
   };
 
-  const startStatusPolling = () => {
-    let pollCount = 0;
-    const maxPolls = 200; // 10 minutes at 3-second intervals
-    
-    const pollInterval = setInterval(async () => {
-      pollCount++;
-      
-      try {
-        const statusResponse = await api.getGuestKycStatus(token);
-        if (statusResponse.success) {
-          const status = statusResponse.verification_status;
-          console.log('Current verification status:', status, 'Poll count:', pollCount);
-          
-          if (status === 'verified') {
-            clearInterval(pollInterval);
-            setStep('success');
-            toast.success('Verification completed successfully!');
-          } else if (status === 'failed') {
-            clearInterval(pollInterval);
-            setStep('error');
-            toast.error('Verification failed. Please try again.');
-          }
-        }
-      } catch (error) {
-        console.error('Error polling verification status:', error);
-      }
-      
-      // If we've been polling for more than 2 minutes without success,
-      // assume verification completed and mark as successful
-      if (pollCount > 40) { // 2 minutes
-        console.log('Assuming verification completed after 2 minutes of polling');
-        clearInterval(pollInterval);
-        
-        // Make a final call to mark as verified
-        try {
-          const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'}/kyc/mark-completed/${token}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-          });
-          
-          if (response.ok) {
-            setStep('success');
-            toast.success('Verification completed successfully!');
-          }
-        } catch (err) {
-          console.error('Error marking verification as completed:', err);
-          // Still show success since user completed verification
-          setStep('success');
-          toast.success('Verification completed successfully!');
-        }
-      }
-      
-      // Stop polling after 10 minutes maximum
-      if (pollCount >= maxPolls) {
-        clearInterval(pollInterval);
-      }
-    }, 3000); // Poll every 3 seconds
+  // No polling - rely purely on webhook for status updates
+  const waitForWebhookUpdate = () => {
+    // Just show a waiting message - webhook will handle the status update
+    console.log('Waiting for webhook to update verification status...');
+    // Pure webhook approach - no status checks at all
   };
 
   const handleSubmit = async () => {

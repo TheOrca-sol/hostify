@@ -85,9 +85,8 @@ def send_verification_link(guest_id):
         sms_result = send_sms(guest.phone, message_body)
 
         if sms_result['success']:
-            # This is the master trigger: schedule all other automated messages for this guest
-            AutomationService.schedule_messages_for_guest(guest.id)
-            return jsonify({'success': True, 'message': 'Verification link sent and automations scheduled.'})
+            # Verification link sent - automation will be triggered after KYC completion
+            return jsonify({'success': True, 'message': 'Verification link sent successfully.'})
         else:
             return jsonify({'success': False, 'error': sms_result.get('error', 'Failed to send SMS.')}), 500
 
