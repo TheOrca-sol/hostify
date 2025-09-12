@@ -187,8 +187,6 @@ const GuestVerification = () => {
             clearInterval(pollInterval);
             setStep('success');
             toast.success('Verification completed successfully!');
-            // Trigger contract generation
-            await api.generateContractAndScheduleSms(linkInfo.guest_id);
           } else if (status === 'failed') {
             clearInterval(pollInterval);
             setStep('error');
@@ -215,7 +213,6 @@ const GuestVerification = () => {
           if (response.ok) {
             setStep('success');
             toast.success('Verification completed successfully!');
-            await api.generateContractAndScheduleSms(linkInfo.guest_id);
           }
         } catch (err) {
           console.error('Error marking verification as completed:', err);
@@ -245,7 +242,6 @@ const GuestVerification = () => {
       if (response.success) {
         setStep('success');
         toast.success('Verification completed successfully!');
-        await api.generateContractAndScheduleSms(linkInfo.guest_id);
       } else {
         toast.error(response.error || 'Failed to submit verification');
       }

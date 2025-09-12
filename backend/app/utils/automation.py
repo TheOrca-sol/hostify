@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
-from ..models import db, MessageTemplate, ScheduledMessage, Guest, Contract, ContractTemplate
+import uuid
+from ..models import db, MessageTemplate, ScheduledMessage, Guest, Contract, ContractTemplate, VerificationLink
 
 class AutomationService:
     @staticmethod
@@ -160,9 +161,76 @@ class AutomationService:
             db.session.commit()
             
             print(f"Successfully created contract {contract.id} for guest {guest_id}")
+            
+            # Schedule contract SMS (worker will send it)
+            AutomationService.schedule_contract_sms(guest, contract)
+            
             return str(contract.id)
             
         except Exception as e:
             db.session.rollback()
             print(f"Error creating contract for guest {guest_id}: {e}")
             return None
+    
+    @staticmethod
+    def schedule_contract_sms(guest, contract):
+        """
+        Schedule SMS notification for contract signing
+        """
+        try:
+            property = guest.reservation.property
+            
+            # Check if we already have a verification link for this contract
+            existing_link = VerificationLink.query.filter_by(
+                guest_id=guest.id,
+                contract_generated=True
+            ).first()
+            
+            if existing_link:
+                print(f"Contract verification link already exists for guest {guest.id}")
+                return True
+            
+            # Create a verification link for the contract
+            token = str(uuid.uuid4())
+            verification_link = VerificationLink(
+                guest_id=guest.id,
+                token=token,
+                expires_at=datetime.now(timezone.utc) + timedelta(days=7),
+                contract_generated=True
+            )
+            db.session.add(verification_link)
+            db.session.commit()
+
+            # Create a message template for the contract
+            template = MessageTemplate(
+                user_id=property.user_id,
+                name=f"Contract for {guest.full_name}",
+                template_type='contract',
+                subject='Your rental contract',
+                content=f"Hello {guest.full_name}, please sign your rental contract: http://localhost:3000/sign-contract/{token}",
+                channels=['sms'],
+                active=True,
+                trigger_event='verification'
+            )
+            db.session.add(template)
+            db.session.commit()
+
+            # Schedule the SMS to be sent immediately
+            message = ScheduledMessage(
+                template_id=template.id,
+                reservation_id=guest.reservation.id,
+                guest_id=guest.id,
+                status='scheduled',
+                scheduled_for=datetime.now(timezone.utc) + timedelta(minutes=1),
+                channels=['sms']
+            )
+            db.session.add(message)
+            db.session.commit()
+            
+            print(f"Successfully scheduled contract SMS for guest {guest.id}")
+            return True
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error scheduling contract SMS for guest {guest.id}: {e}")
+            return False

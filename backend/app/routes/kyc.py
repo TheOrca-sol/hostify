@@ -100,12 +100,12 @@ def didit_webhook():
             
             logger.info(f"Guest {guest_id} successfully verified via Didit KYC")
             
-            # Trigger contract generation
+            # Trigger contract generation and schedule all automated messages
             try:
                 from ..utils.automation import AutomationService
-                AutomationService.create_contract_for_guest(guest_id)
+                AutomationService.schedule_messages_for_guest(guest_id)
             except Exception as e:
-                logger.error(f"Failed to trigger contract generation: {str(e)}")
+                logger.error(f"Failed to trigger automation: {str(e)}")
                 
         elif status in ['failed', 'rejected', 'error']:
             guest.verification_status = 'failed'
@@ -311,12 +311,12 @@ def get_guest_kyc_status(verification_token):
                     result['verification_status'] = 'verified'
                     logger.info(f"Updated guest {guest.id} status to verified based on Didit status")
                     
-                    # Trigger contract generation
+                    # Trigger contract generation and schedule all automated messages
                     try:
                         from ..utils.automation import AutomationService  
-                        AutomationService.create_contract_for_guest(str(guest.id))
+                        AutomationService.schedule_messages_for_guest(str(guest.id))
                     except Exception as e:
-                        logger.error(f"Failed to trigger contract generation: {str(e)}")
+                        logger.error(f"Failed to trigger automation: {str(e)}")
                         
                 elif didit_status_value in ['failed', 'rejected', 'error']:
                     guest.verification_status = 'failed'
@@ -358,12 +358,12 @@ def mark_kyc_completed(verification_token):
             
             logger.info(f"Fallback: Marked guest {guest.id} as verified after timeout")
             
-            # Trigger contract generation
+            # Trigger contract generation and schedule all automated messages
             try:
                 from ..utils.automation import AutomationService
-                AutomationService.create_contract_for_guest(str(guest.id))
+                AutomationService.schedule_messages_for_guest(str(guest.id))
             except Exception as e:
-                logger.error(f"Failed to trigger contract generation: {str(e)}")
+                logger.error(f"Failed to trigger automation: {str(e)}")
         
         return jsonify({
             'success': True,
