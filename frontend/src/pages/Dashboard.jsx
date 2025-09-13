@@ -10,7 +10,7 @@ import ContractList from '../components/ContractList'
 import TeamsManagement from './TeamsManagement'
 import OccupancyCalendar from '../components/OccupancyCalendar'
 import PropertyOccupancyChart from '../components/PropertyOccupancyChart'
-import { Home, Calendar, Users, Mail, BarChart, FileText, UserCheck, RefreshCw, CheckCircle, UserPlus, Activity } from 'lucide-react'
+import { Home, Calendar, Users, Mail, BarChart, FileText, UserCheck, RefreshCw, CheckCircle, UserPlus, Activity, Database } from 'lucide-react'
 
 export default function Dashboard() {
   const { userProfile } = useAuth()
@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [properties, setProperties] = useState([])
   const [reservations, setReservations] = useState([])
   const [showCalendarView, setShowCalendarView] = useState(false)
+  const [generatingTestData, setGeneratingTestData] = useState(false)
 
   useEffect(() => {
     loadDashboardData()
@@ -127,6 +128,30 @@ export default function Dashboard() {
     }
   }, [occupancyPeriod, customDateRange, startDate, endDate, stats.occupancy]);
 
+  const handleGenerateTestData = async () => {
+    if (generatingTestData) return;
+    
+    setGeneratingTestData(true);
+    try {
+      const result = await api.generateTestData();
+      
+      if (result.success) {
+        // Show success message
+        alert(`Success! Generated ${result.data.reservations.length} reservations and ${result.data.guests.length} guests.`);
+        
+        // Refresh dashboard data to show the new test data
+        await loadDashboardData();
+      } else {
+        alert(`Error: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error generating test data:', error);
+      alert('Failed to generate test data. Please try again.');
+    } finally {
+      setGeneratingTestData(false);
+    }
+  };
+
   const tabs = [
     { id: 'overview', name: 'Overview', icon: BarChart },
     { id: 'properties', name: 'Properties', icon: Home },
@@ -161,7 +186,16 @@ export default function Dashboard() {
                 Manage your properties and guest verification from your dashboard
               </p>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={handleGenerateTestData}
+                disabled={generatingTestData}
+                className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Generate sample reservations and guests for testing"
+              >
+                <Database className="h-4 w-4 mr-1.5" />
+                {generatingTestData ? 'Generating...' : 'Add Test Data'}
+              </button>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                 Property-Centric Mode
               </span>

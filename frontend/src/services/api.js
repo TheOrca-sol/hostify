@@ -917,6 +917,22 @@ export const api = {
     }
   },
 
+  async generateTestData() {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/dashboard/generate-test-data`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating test data:', error);
+      return { success: false, error: 'Failed to generate test data' };
+    }
+  },
+
   // Auth
   async generateFileToken() {
     try {

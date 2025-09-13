@@ -10,6 +10,7 @@ from ..models import db, Property, Reservation, Guest, SyncLog, ScheduledMessage
 from sqlalchemy import desc, func
 from datetime import datetime, timezone, timedelta
 import json
+import uuid
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -329,3 +330,124 @@ def get_occupancy_data():
     except Exception as e:
         current_app.logger.error(f"Error getting occupancy data: {str(e)}")
         return jsonify({'success': False, 'error': 'Internal server error'}), 500
+
+@dashboard_bp.route('/generate-test-data', methods=['POST'])
+@require_auth
+def generate_test_data():
+    """
+    Generate test reservation and guest data simulating calendar sync
+    """
+    try:
+        user = get_user_by_firebase_uid(g.user_id)
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+        # Get user's active properties
+        properties = Property.query.filter_by(user_id=user.id, is_active=True).all()
+        if not properties:
+            return jsonify({'success': False, 'error': 'No active properties found. Please create a property first.'}), 400
+
+        # Sample guest data to create realistic test reservations (without phone numbers)
+        sample_guests = [
+            {'name': 'John Smith'},
+            {'name': 'Sarah Johnson'},
+            {'name': 'Michael Brown'},
+            {'name': 'Emma Wilson'},
+            {'name': 'David Lee'},
+            {'name': 'Alice Cooper'},
+            {'name': 'Robert Taylor'},
+            {'name': 'Lisa Anderson'},
+        ]
+
+        created_reservations = []
+        created_guests = []
+
+        # Generate only 1 test reservation per click
+        import random
+        from datetime import date, timedelta
+        
+        num_reservations = 1
+        
+        for i in range(num_reservations):
+            # Pick random property and guest data
+            property_obj = random.choice(properties)
+            guest_data = random.choice(sample_guests)
+            
+            # Generate realistic check-in/check-out dates
+            days_from_now = random.randint(1, 30)  # 1-30 days from now
+            check_in = date.today() + timedelta(days=days_from_now)
+            check_out = check_in + timedelta(days=random.randint(2, 7))  # 2-7 night stays
+            
+            # Create reservation (mimicking calendar sync)
+            reservation = Reservation(
+                property_id=property_obj.id,
+                check_in=check_in,
+                check_out=check_out,
+                external_id=f'test-{uuid.uuid4().hex[:8]}',
+                status='confirmed',
+                sync_source='test_data',
+                guest_name_partial=guest_data['name'],
+                phone_partial=None,  # No phone number - user will add manually
+                raw_data=json.dumps({
+                    'source': 'test_data_generator',
+                    'generated_at': datetime.utcnow().isoformat()
+                })
+            )
+            db.session.add(reservation)
+            db.session.flush()  # Get the reservation ID
+            
+            # Create guest record directly without automation (like raw calendar sync data)
+            guest = Guest(
+                reservation_id=reservation.id,
+                full_name=guest_data['name'],
+                phone=None,  # No phone number - user will add manually
+                verification_status='pending',
+                verification_token=str(uuid.uuid4())
+            )
+            db.session.add(guest)
+            db.session.flush()  # Get the guest ID
+            
+            created_guests.append({
+                'id': str(guest.id),
+                'name': guest_data['name'],
+                'phone': None
+            })
+                
+            created_reservations.append({
+                'id': str(reservation.id),
+                'property_name': property_obj.name,
+                'guest_name': guest_data['name'],
+                'check_in': check_in.isoformat(),
+                'check_out': check_out.isoformat(),
+                'external_id': reservation.external_id
+            })
+
+        # Create a sync log entry to simulate the calendar sync
+        sync_log = SyncLog(
+            property_id=properties[0].id,  # Use first property for the log
+            sync_type='test_data',
+            status='success',
+            started_at=datetime.utcnow(),
+            completed_at=datetime.utcnow(),
+            events_processed=len(created_reservations),
+            errors=None
+        )
+        db.session.add(sync_log)
+
+        # Commit all changes
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Successfully created 1 test reservation and 1 test guest (no phone number - add manually)',
+            'data': {
+                'reservations': created_reservations,
+                'guests': created_guests,
+                'sync_log_id': str(sync_log.id)
+            }
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error generating test data: {str(e)}")
+        return jsonify({'success': False, 'error': f'Failed to generate test data: {str(e)}'}), 500
