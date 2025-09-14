@@ -94,21 +94,69 @@ def didit_webhook():
             guest.verification_status = 'verified'
             guest.verified_at = datetime.now()
             
-            # Extract any additional data from results
-            results = webhook_data.get('results', {})
-            if results:
-                # Update KYC specific fields
-                guest.kyc_confidence_score = results.get('confidence_score')
-                guest.kyc_liveness_passed = results.get('liveness_check', True)
+            # Extract comprehensive data from Didit webhook
+            decision = webhook_data.get('decision', {})
+            if decision:
+                # Extract ID verification data
+                id_verification = decision.get('id_verification', {})
+                if id_verification:
+                    # Basic information
+                    if id_verification.get('full_name'):
+                        guest.full_name = id_verification['full_name']
+                    if id_verification.get('document_number'):
+                        guest.cin_or_passport = id_verification['document_number']
+                    if id_verification.get('nationality'):
+                        guest.nationality = id_verification['nationality']
+                    if id_verification.get('address'):
+                        guest.address = id_verification['address']
+                    if id_verification.get('date_of_birth'):
+                        try:
+                            guest.birthdate = datetime.strptime(id_verification['date_of_birth'], '%Y-%m-%d').date()
+                        except:
+                            logger.warning(f"Could not parse birthdate: {id_verification['date_of_birth']}")
+                    
+                    # KYC specific fields
+                    guest.kyc_age_estimation = id_verification.get('age')
+                    guest.kyc_gender = id_verification.get('gender')
+                    guest.kyc_place_of_birth = id_verification.get('place_of_birth')
+                    guest.kyc_personal_number = id_verification.get('personal_number')
+                    guest.kyc_issuing_country = id_verification.get('issuing_state_name')
+                    
+                    # Document expiry
+                    if id_verification.get('expiration_date'):
+                        try:
+                            guest.kyc_document_expiry = datetime.strptime(id_verification['expiration_date'], '%Y-%m-%d').date()
+                        except:
+                            logger.warning(f"Could not parse expiry date: {id_verification['expiration_date']}")
+                    
+                    # Document images
+                    guest.kyc_document_front_image = id_verification.get('front_image')
+                    guest.kyc_document_back_image = id_verification.get('back_image')
+                    guest.kyc_portrait_image = id_verification.get('portrait_image')
+                    
+                    # Warnings/risks
+                    if id_verification.get('warnings'):
+                        guest.kyc_verification_warnings = id_verification['warnings']
                 
-                # Extract document data if available
-                document_data = results.get('document', {})
-                if document_data.get('full_name'):
-                    guest.full_name = document_data['full_name']
-                if document_data.get('document_number'):
-                    guest.cin_or_passport = document_data['document_number']
-                if document_data.get('nationality'):
-                    guest.nationality = document_data['nationality']
+                # Extract face match data
+                face_match = decision.get('face_match', {})
+                if face_match:
+                    guest.kyc_face_match_score = face_match.get('score')
+                    guest.kyc_confidence_score = face_match.get('score')  # Keep backward compatibility
+                
+                # Extract liveness data
+                liveness = decision.get('liveness', {})
+                if liveness:
+                    guest.kyc_liveness_score = liveness.get('score')
+                    guest.kyc_liveness_passed = liveness.get('status') == 'Approved'
+                    if liveness.get('reference_image'):
+                        guest.kyc_selfie_image = liveness['reference_image']
+                
+                # Extract IP location data
+                ip_analysis = decision.get('ip_analysis', {})
+                if ip_analysis:
+                    location_info = f"{ip_analysis.get('ip_city', '')}, {ip_analysis.get('ip_country', '')}"
+                    guest.kyc_ip_location = location_info.strip(', ')
             
             logger.info(f"Guest {guest_id} successfully verified via Didit KYC")
             

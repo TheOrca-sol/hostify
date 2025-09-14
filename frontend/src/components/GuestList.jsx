@@ -323,6 +323,121 @@ export default function GuestList({ propertyId, onAddGuest }) {
                             )}
                           </div>
                         </div>
+
+                        {/* KYC Verification Details */}
+                        {guest.verification_status === 'verified' && (guest.kyc_face_match_score || guest.kyc_liveness_score || guest.kyc_age_estimation) && (
+                          <div className="space-y-2 col-span-1 md:col-span-2">
+                            <h4 className="font-semibold text-gray-900 text-sm">🔒 KYC Verification Details</h4>
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                                {/* Verification Scores */}
+                                {guest.kyc_face_match_score && (
+                                  <div className="flex items-center">
+                                    <span className="font-medium text-gray-700">Face Match:</span>
+                                    <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                      {guest.kyc_face_match_score.toFixed(1)}%
+                                    </span>
+                                  </div>
+                                )}
+                                {guest.kyc_liveness_score && (
+                                  <div className="flex items-center">
+                                    <span className="font-medium text-gray-700">Liveness:</span>
+                                    <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                      {guest.kyc_liveness_score.toFixed(1)}%
+                                    </span>
+                                  </div>
+                                )}
+                                {guest.kyc_age_estimation && (
+                                  <div>
+                                    <span className="font-medium text-gray-700">Age Estimated:</span>
+                                    <span className="ml-1 text-gray-600">{guest.kyc_age_estimation}</span>
+                                  </div>
+                                )}
+                                {guest.kyc_gender && (
+                                  <div>
+                                    <span className="font-medium text-gray-700">Gender:</span>
+                                    <span className="ml-1 text-gray-600">{guest.kyc_gender === 'M' ? 'Male' : guest.kyc_gender === 'F' ? 'Female' : guest.kyc_gender}</span>
+                                  </div>
+                                )}
+                                {guest.kyc_place_of_birth && (
+                                  <div>
+                                    <span className="font-medium text-gray-700">Place of Birth:</span>
+                                    <span className="ml-1 text-gray-600">{guest.kyc_place_of_birth}</span>
+                                  </div>
+                                )}
+                                {guest.kyc_document_expiry && (
+                                  <div>
+                                    <span className="font-medium text-gray-700">Doc. Expires:</span>
+                                    <span className="ml-1 text-gray-600">{new Date(guest.kyc_document_expiry).toLocaleDateString()}</span>
+                                  </div>
+                                )}
+                                {guest.kyc_issuing_country && (
+                                  <div>
+                                    <span className="font-medium text-gray-700">Issued by:</span>
+                                    <span className="ml-1 text-gray-600">{guest.kyc_issuing_country}</span>
+                                  </div>
+                                )}
+                                {guest.kyc_ip_location && (
+                                  <div>
+                                    <span className="font-medium text-gray-700">Verified from:</span>
+                                    <span className="ml-1 text-gray-600">{guest.kyc_ip_location}</span>
+                                  </div>
+                                )}
+                                {guest.kyc_personal_number && (
+                                  <div>
+                                    <span className="font-medium text-gray-700">Personal #:</span>
+                                    <span className="ml-1 text-gray-600 font-mono text-xs">{guest.kyc_personal_number}</span>
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Document Images */}
+                              {(guest.kyc_document_front_image || guest.kyc_document_back_image || guest.kyc_portrait_image || guest.kyc_selfie_image) && (
+                                <div className="mt-3 pt-3 border-t border-green-300">
+                                  <span className="font-medium text-gray-700 text-sm">Verification Images:</span>
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {guest.kyc_document_front_image && (
+                                      <a href={guest.kyc_document_front_image} target="_blank" rel="noopener noreferrer" 
+                                         className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded hover:bg-blue-200">
+                                        📄 Document Front
+                                      </a>
+                                    )}
+                                    {guest.kyc_document_back_image && (
+                                      <a href={guest.kyc_document_back_image} target="_blank" rel="noopener noreferrer" 
+                                         className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded hover:bg-blue-200">
+                                        📄 Document Back
+                                      </a>
+                                    )}
+                                    {guest.kyc_portrait_image && (
+                                      <a href={guest.kyc_portrait_image} target="_blank" rel="noopener noreferrer" 
+                                         className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded hover:bg-purple-200">
+                                        🖼️ ID Portrait
+                                      </a>
+                                    )}
+                                    {guest.kyc_selfie_image && (
+                                      <a href={guest.kyc_selfie_image} target="_blank" rel="noopener noreferrer" 
+                                         className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded hover:bg-green-200">
+                                        🤳 Selfie
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Warnings */}
+                              {guest.kyc_verification_warnings && guest.kyc_verification_warnings.length > 0 && (
+                                <div className="mt-3 pt-3 border-t border-yellow-300 bg-yellow-50 rounded p-2">
+                                  <span className="font-medium text-yellow-800 text-sm">⚠️ Verification Notes:</span>
+                                  <ul className="mt-1 text-xs text-yellow-700 space-y-1">
+                                    {guest.kyc_verification_warnings.map((warning, index) => (
+                                      <li key={index}>• {warning.short_description || warning.risk || 'Warning detected'}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                         
                         {/* Reservation Information */}
                         <div className="space-y-2">

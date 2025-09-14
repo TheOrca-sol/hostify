@@ -163,6 +163,20 @@ class Guest(db.Model):
     kyc_session_id = db.Column(db.Text, nullable=True)  # Didit session ID
     kyc_confidence_score = db.Column(db.Float, nullable=True)  # Face match confidence score (0-100)
     kyc_liveness_passed = db.Column(db.Boolean, nullable=True, default=False)  # Liveness detection result
+    kyc_liveness_score = db.Column(db.Float, nullable=True)  # Liveness detection score (0-100)
+    kyc_face_match_score = db.Column(db.Float, nullable=True)  # Face matching score (0-100)
+    kyc_age_estimation = db.Column(db.Integer, nullable=True)  # Estimated age from document
+    kyc_gender = db.Column(db.Text, nullable=True)  # Gender from document (M/F)
+    kyc_document_expiry = db.Column(db.Date, nullable=True)  # Document expiration date
+    kyc_place_of_birth = db.Column(db.Text, nullable=True)  # Place of birth from document
+    kyc_personal_number = db.Column(db.Text, nullable=True)  # Personal number from document
+    kyc_issuing_country = db.Column(db.Text, nullable=True)  # Document issuing country
+    kyc_document_front_image = db.Column(db.Text, nullable=True)  # URL to front image
+    kyc_document_back_image = db.Column(db.Text, nullable=True)  # URL to back image
+    kyc_portrait_image = db.Column(db.Text, nullable=True)  # URL to extracted portrait
+    kyc_selfie_image = db.Column(db.Text, nullable=True)  # URL to liveness selfie
+    kyc_ip_location = db.Column(db.Text, nullable=True)  # IP geolocation during verification
+    kyc_verification_warnings = db.Column(JSON, nullable=True)  # Didit warnings/risks
     
     # Relationships
     verification_links = db.relationship('VerificationLink', backref='guest', lazy=True, cascade='all, delete-orphan')
@@ -190,7 +204,21 @@ class Guest(db.Model):
             # KYC fields
             'kyc_session_id': self.kyc_session_id,
             'kyc_confidence_score': self.kyc_confidence_score,
-            'kyc_liveness_passed': self.kyc_liveness_passed
+            'kyc_liveness_passed': self.kyc_liveness_passed,
+            'kyc_liveness_score': self.kyc_liveness_score,
+            'kyc_face_match_score': self.kyc_face_match_score,
+            'kyc_age_estimation': self.kyc_age_estimation,
+            'kyc_gender': self.kyc_gender,
+            'kyc_document_expiry': self.kyc_document_expiry.isoformat() if self.kyc_document_expiry else None,
+            'kyc_place_of_birth': self.kyc_place_of_birth,
+            'kyc_personal_number': self.kyc_personal_number,
+            'kyc_issuing_country': self.kyc_issuing_country,
+            'kyc_document_front_image': self.kyc_document_front_image,
+            'kyc_document_back_image': self.kyc_document_back_image,
+            'kyc_portrait_image': self.kyc_portrait_image,
+            'kyc_selfie_image': self.kyc_selfie_image,
+            'kyc_ip_location': self.kyc_ip_location,
+            'kyc_verification_warnings': self.kyc_verification_warnings
         }
         
         # Add reservation and property information if reservation exists
