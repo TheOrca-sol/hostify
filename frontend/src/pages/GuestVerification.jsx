@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { toast } from '../components/Toaster';
@@ -24,9 +24,18 @@ const GuestVerification = () => {
   const [verificationMethod, setVerificationMethod] = useState(null); // 'basic' or 'advanced'
   const [kycSessionUrl, setKycSessionUrl] = useState(null);
   const [kycStatus, setKycStatus] = useState(null);
+  const pollIntervalRef = useRef(null);
 
   useEffect(() => {
     verifyToken();
+    
+    // Cleanup polling on component unmount
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
   }, [token]);
 
   const verifyToken = async () => {
@@ -170,11 +179,37 @@ const GuestVerification = () => {
     }
   };
 
-  // No polling - rely purely on webhook for status updates
+  // Poll for verification status updates
   const waitForWebhookUpdate = () => {
-    // Just show a waiting message - webhook will handle the status update
-    console.log('Waiting for webhook to update verification status...');
-    // Pure webhook approach - no status checks at all
+    console.log('Starting verification status polling...');
+    
+    // Clear any existing polling interval
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+    
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        console.log('Polling verification status...');
+        const response = await api.getVerificationInfo(token);
+        
+        if (response.success && response.guest_status === 'verified') {
+          console.log('Verification completed! Updating UI...');
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+          setStep('success');
+          toast.success('Verification completed successfully!');
+        } else if (response.success && response.guest_status === 'failed') {
+          console.log('Verification failed! Updating UI...');
+          clearInterval(pollIntervalRef.current);
+          pollIntervalRef.current = null;
+          setStep('error');
+          toast.error('Verification failed. Please try again.');
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 3000); // Poll every 3 seconds
   };
 
   const handleSubmit = async () => {
