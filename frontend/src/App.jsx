@@ -14,6 +14,7 @@ import ContractSigning from './components/ContractSigning'
 import ContractSignedSuccess from './pages/ContractSignedSuccess'
 import InvitationAcceptance from './pages/InvitationAcceptance'
 import TeamDetails from './pages/TeamDetails'
+import SmartLocks from './pages/SmartLocks'
 
 // Protected route wrapper
 const ProtectedRoute = ({ children, allowProfileSetup = false }) => {
@@ -53,6 +54,13 @@ function App() {
             <Route path="/invite/:token" element={<InvitationAcceptance />} />
             
             {/* Protected Routes */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Navbar />
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+
             <Route path="/" element={
               <ProtectedRoute>
                 <Navbar />
@@ -115,6 +123,13 @@ function App() {
                 <div className="container mx-auto px-4 py-8">
                   <ContractSigning mode="sign" />
                 </div>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/smart-locks" element={
+              <ProtectedRoute>
+                <Navbar />
+                <SmartLocks />
               </ProtectedRoute>
             } />
           </Routes>

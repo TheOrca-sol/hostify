@@ -22,6 +22,8 @@ from .routes.team import team_bp
 from .routes.teams import teams_bp
 from .routes.sms_auth import sms_auth_bp
 from .routes.kyc import kyc_bp
+from .routes.smart_locks import smart_locks_bp
+from .routes.webhooks import webhooks_bp
 import os
 from datetime import datetime
 
@@ -92,6 +94,7 @@ def create_app():
     app.register_blueprint(teams_bp, url_prefix='/api')
     app.register_blueprint(sms_auth_bp, url_prefix='/api/sms-auth')
     app.register_blueprint(kyc_bp, url_prefix='/api')
-    
+    app.register_blueprint(smart_locks_bp, url_prefix='/api')
+    app.register_blueprint(webhooks_bp, url_prefix='/api')
 
     return app 

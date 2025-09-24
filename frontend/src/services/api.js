@@ -1515,6 +1515,147 @@ export const api = {
       console.error('Error getting guest KYC status:', error);
       return { success: false, error: error.message };
     }
+  },
+
+  // Smart Lock Management
+  async connectTTLockAccount(credentials) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/ttlock/connect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(credentials)
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error connecting TTLock account:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getPropertySmartLocks(propertyId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/smart-locks`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting property smart locks:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async addSmartLockToProperty(propertyId, lockData) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/smart-locks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(lockData)
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error adding smart lock:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async generateTestPasscode(lockId) {
+    try {
+      // For demo purposes - in real implementation this would create a test passcode
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/smart-locks/${lockId}/test-passcode`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating test passcode:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async disconnectTTLockAccount() {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/ttlock/disconnect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error disconnecting TTLock account:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async createAccessCode(reservationId, accessData) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/reservations/${reservationId}/access-codes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(accessData)
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating access code:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async revokeAccessCode(accessCodeId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/access-codes/${accessCodeId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error revoking access code:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getAccessLogs(lockId, page = 1, perPage = 20) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/smart-locks/${lockId}/access-logs?page=${page}&per_page=${perPage}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting access logs:', error);
+      return { success: false, error: error.message };
+    }
   }
 };
 

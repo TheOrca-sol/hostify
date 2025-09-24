@@ -1,12 +1,13 @@
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../services/auth'
-import { 
+import {
   Home,
   FileText,
   MessageSquare,
   LogOut,
-  User
+  User,
+  Lock
 } from 'lucide-react'
 
 export default function Navbar() {
@@ -53,6 +54,16 @@ export default function Navbar() {
               >
                 <MessageSquare size={20} />
                 <span>Messages</span>
+              </Link>
+
+              <Link
+                to="/smart-locks"
+                className={`flex items-center space-x-2 px-3 py-2 rounded-md ${
+                  isActive('/smart-locks') ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Lock size={20} />
+                <span>Smart Locks</span>
               </Link>
             </div>
           </div>

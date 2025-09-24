@@ -23,8 +23,17 @@ class User(db.Model):
     company_name = db.Column(db.Text, nullable=True)
     signature = db.Column(db.Text, nullable=True)  # Base64 encoded signature image
     settings = db.Column(JSON, nullable=True)  # User preferences and settings
+
+    # TTLock integration fields (encrypted)
+    ttlock_username_encrypted = db.Column(db.Text, nullable=True)  # Encrypted TTLock username/phone
+    ttlock_password_encrypted = db.Column(db.Text, nullable=True)  # Encrypted TTLock password
+    ttlock_access_token = db.Column(db.Text, nullable=True)  # Current access token (temporary)
+    ttlock_token_expires_at = db.Column(db.DateTime(timezone=True), nullable=True)  # Token expiration
+    ttlock_uid = db.Column(db.Text, nullable=True)  # TTLock user ID
+    ttlock_connected_at = db.Column(db.DateTime(timezone=True), nullable=True)  # When first connected
+
     created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
-    
+
     # Relationships
     properties = db.relationship('Property', backref='owner', lazy=True, cascade='all, delete-orphan')
     contract_templates = db.relationship('ContractTemplate', backref='creator', lazy=True)
@@ -39,8 +48,54 @@ class User(db.Model):
             'company_name': self.company_name,
             'signature': self.signature,
             'settings': self.settings,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'ttlock_connected': self.ttlock_connected_at is not None,
+            'ttlock_connected_at': self.ttlock_connected_at.isoformat() if self.ttlock_connected_at else None
         }
+
+    def store_ttlock_credentials(self, username: str, password: str):
+        """Securely store TTLock credentials"""
+        from .utils.encryption import credential_encryption
+
+        self.ttlock_username_encrypted = credential_encryption.encrypt(username)
+        self.ttlock_password_encrypted = credential_encryption.encrypt(password)
+        self.ttlock_connected_at = datetime.now(timezone.utc)
+
+    def get_ttlock_credentials(self):
+        """Retrieve and decrypt TTLock credentials"""
+        from .utils.encryption import credential_encryption
+
+        if not self.ttlock_username_encrypted or not self.ttlock_password_encrypted:
+            return None, None
+
+        username = credential_encryption.decrypt(self.ttlock_username_encrypted)
+        password = credential_encryption.decrypt(self.ttlock_password_encrypted)
+
+        return username, password
+
+    def update_ttlock_token(self, access_token: str, expires_in: int, uid: str = None):
+        """Update TTLock access token and expiration"""
+        self.ttlock_access_token = access_token
+        if expires_in:
+            from datetime import timedelta
+            self.ttlock_token_expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+        if uid:
+            self.ttlock_uid = uid
+
+    def is_ttlock_token_valid(self):
+        """Check if TTLock access token is still valid"""
+        if not self.ttlock_access_token or not self.ttlock_token_expires_at:
+            return False
+        return datetime.now(timezone.utc) < self.ttlock_token_expires_at
+
+    def clear_ttlock_credentials(self):
+        """Clear all TTLock credentials"""
+        self.ttlock_username_encrypted = None
+        self.ttlock_password_encrypted = None
+        self.ttlock_access_token = None
+        self.ttlock_token_expires_at = None
+        self.ttlock_uid = None
+        self.ttlock_connected_at = None
 
 class Property(db.Model):
     """Property information model"""
@@ -65,6 +120,7 @@ class Property(db.Model):
     # Relationships
     reservations = db.relationship('Reservation', backref='property', lazy=True, cascade='all, delete-orphan')
     sync_logs = db.relationship('SyncLog', backref='property', lazy=True)
+    smart_locks = db.relationship('SmartLock', backref='property', lazy=True, cascade='all, delete-orphan')
     
     def to_dict(self):
         return {
@@ -779,4 +835,116 @@ class TeamPerformance(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             # Include related data
             'team_name': self.team.name if self.team else None
+        }
+
+class SmartLock(db.Model):
+    """Smart lock information model for TTLock integration"""
+    __tablename__ = 'smart_locks'
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    property_id = db.Column(UUID(as_uuid=True), db.ForeignKey('properties.id'), nullable=False)
+    ttlock_id = db.Column(db.String(255), unique=True, nullable=False)
+    lock_name = db.Column(db.String(255), nullable=False)
+    gateway_mac = db.Column(db.String(255), nullable=True)
+    lock_mac = db.Column(db.String(255), nullable=False)
+    lock_version = db.Column(db.String(100), nullable=True)
+    battery_level = db.Column(db.Integer, nullable=True)
+    status = db.Column(db.String(50), nullable=False, server_default='active')  # active, inactive, offline
+    settings = db.Column(JSON, nullable=True)  # Lock-specific settings
+    created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    updated_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'), onupdate=datetime.utcnow)
+
+    # Relationships
+    access_codes = db.relationship('AccessCode', backref='smart_lock', lazy=True, cascade='all, delete-orphan')
+    access_logs = db.relationship('AccessLog', backref='smart_lock', lazy=True, cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'property_id': str(self.property_id),
+            'ttlock_id': self.ttlock_id,
+            'lock_name': self.lock_name,
+            'gateway_mac': self.gateway_mac,
+            'lock_mac': self.lock_mac,
+            'lock_version': self.lock_version,
+            'battery_level': self.battery_level,
+            'status': self.status,
+            'settings': self.settings,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            # Include property information
+            'property_name': self.property.name if self.property else None,
+            'property_address': self.property.address if self.property else None
+        }
+
+class AccessCode(db.Model):
+    """Access codes/Passcodes for smart locks"""
+    __tablename__ = 'access_codes'
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    reservation_id = db.Column(UUID(as_uuid=True), db.ForeignKey('reservations.id'), nullable=False)
+    smart_lock_id = db.Column(UUID(as_uuid=True), db.ForeignKey('smart_locks.id'), nullable=False)
+    passcode = db.Column(db.String(20), nullable=True)  # The actual numeric passcode
+    passcode_id = db.Column(db.String(255), nullable=True)  # TTLock passcode ID for management
+    access_type = db.Column(db.String(50), nullable=False, server_default='temporary')  # temporary, permanent
+    start_time = db.Column(db.DateTime(timezone=True), nullable=True)
+    end_time = db.Column(db.DateTime(timezone=True), nullable=True)
+    status = db.Column(db.String(50), nullable=False, server_default='active')  # active, revoked, expired
+    is_one_time = db.Column(db.Boolean, nullable=False, server_default=text('false'))  # One-time use passcode
+    usage_count = db.Column(db.Integer, nullable=False, server_default=text('0'))  # Number of times used
+    max_usage = db.Column(db.Integer, nullable=True)  # Maximum allowed usage (null = unlimited)
+    guest_phone = db.Column(db.String(20), nullable=True)
+    guest_email = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    revoked_at = db.Column(db.DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    reservation = db.relationship('Reservation', backref='access_codes', lazy=True)
+    access_logs = db.relationship('AccessLog', backref='access_code', lazy=True)
+
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'reservation_id': str(self.reservation_id),
+            'smart_lock_id': str(self.smart_lock_id),
+            'passcode': self.passcode,
+            'passcode_id': self.passcode_id,
+            'access_type': self.access_type,
+            'start_time': self.start_time.isoformat() if self.start_time else None,
+            'end_time': self.end_time.isoformat() if self.end_time else None,
+            'status': self.status,
+            'is_one_time': self.is_one_time,
+            'usage_count': self.usage_count,
+            'max_usage': self.max_usage,
+            'guest_phone': self.guest_phone,
+            'guest_email': self.guest_email,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'revoked_at': self.revoked_at.isoformat() if self.revoked_at else None,
+            # Include related information
+            'lock_name': self.smart_lock.lock_name if self.smart_lock else None,
+            'guest_name': self.reservation.guest_name_partial if self.reservation else None
+        }
+
+class AccessLog(db.Model):
+    """Logs of smart lock access attempts and usage"""
+    __tablename__ = 'access_logs'
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    smart_lock_id = db.Column(UUID(as_uuid=True), db.ForeignKey('smart_locks.id'), nullable=False)
+    access_code_id = db.Column(UUID(as_uuid=True), db.ForeignKey('access_codes.id'), nullable=True)
+    action = db.Column(db.String(50), nullable=False)  # unlock, lock, failed_attempt, manual_override
+    timestamp = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    user_info = db.Column(JSON, nullable=True)  # Additional info about who accessed
+
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'smart_lock_id': str(self.smart_lock_id),
+            'access_code_id': str(self.access_code_id) if self.access_code_id else None,
+            'action': self.action,
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
+            'user_info': self.user_info,
+            # Include related information
+            'lock_name': self.smart_lock.lock_name if self.smart_lock else None,
+            'guest_name': self.access_code.reservation.guest_name_partial if self.access_code and self.access_code.reservation else None
         }
