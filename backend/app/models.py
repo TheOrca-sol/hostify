@@ -114,6 +114,12 @@ class Property(db.Model):
     auto_messaging = db.Column(db.Boolean, server_default=text('true')) # Auto-send messages
     last_sync = db.Column(db.DateTime(timezone=True), nullable=True)
     settings = db.Column(JSON, nullable=True)  # Property-specific settings
+
+    # Smart Lock Configuration
+    smart_lock_type = db.Column(db.String(20), nullable=False, default='traditional')  # 'ttlock', 'manual', 'traditional'
+    smart_lock_instructions = db.Column(db.Text, nullable=True)  # Custom instructions for guests
+    smart_lock_settings = db.Column(JSON, nullable=True)  # Smart lock specific settings
+
     is_active = db.Column(db.Boolean, server_default=text('true'))  # For soft delete
     created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
     
@@ -136,6 +142,12 @@ class Property(db.Model):
             'auto_messaging': self.auto_messaging,
             'last_sync': self.last_sync.isoformat() if self.last_sync else None,
             'settings': self.settings,
+
+            # Smart Lock Configuration
+            'smart_lock_type': self.smart_lock_type,
+            'smart_lock_instructions': self.smart_lock_instructions,
+            'smart_lock_settings': self.smart_lock_settings,
+
             'created_at': self.created_at.isoformat() if self.created_at else None,
             # Include team information
             'team_name': self.team.name if self.team else None,
@@ -877,6 +889,46 @@ class SmartLock(db.Model):
             # Include property information
             'property_name': self.property.name if self.property else None,
             'property_address': self.property.address if self.property else None
+        }
+
+class ReservationPasscode(db.Model):
+    """Passcodes generated for reservations"""
+    __tablename__ = 'reservation_passcodes'
+
+    id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
+    reservation_id = db.Column(UUID(as_uuid=True), db.ForeignKey('reservations.id'), nullable=False)
+    property_id = db.Column(UUID(as_uuid=True), db.ForeignKey('properties.id'), nullable=False)
+    passcode = db.Column(db.String(20), nullable=True)  # The actual passcode (null for pending manual entry)
+    valid_from = db.Column(db.DateTime(timezone=True), nullable=False)  # Check-in - 1 hour
+    valid_until = db.Column(db.DateTime(timezone=True), nullable=False)  # Check-out + 1 hour
+    generation_method = db.Column(db.String(20), nullable=False)  # 'ttlock', 'manual'
+    status = db.Column(db.String(20), nullable=False, default='pending')  # 'pending', 'active', 'used', 'expired'
+    ttlock_access_codes = db.Column(JSON, nullable=True)  # TTLock API response data for tracking
+    host_notified_at = db.Column(db.DateTime(timezone=True), nullable=True)  # When SMS was sent to host
+    created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
+    updated_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'), onupdate=datetime.utcnow)
+
+    # Relationships
+    reservation = db.relationship('Reservation', backref='passcodes', lazy=True)
+    property = db.relationship('Property', backref='reservation_passcodes', lazy=True)
+
+    def to_dict(self):
+        return {
+            'id': str(self.id),
+            'reservation_id': str(self.reservation_id),
+            'property_id': str(self.property_id),
+            'passcode': self.passcode,
+            'valid_from': self.valid_from.isoformat() if self.valid_from else None,
+            'valid_until': self.valid_until.isoformat() if self.valid_until else None,
+            'generation_method': self.generation_method,
+            'status': self.status,
+            'ttlock_access_codes': self.ttlock_access_codes,
+            'host_notified_at': self.host_notified_at.isoformat() if self.host_notified_at else None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            # Include reservation and property info
+            'reservation_guest_name': self.reservation.guest_name_partial if self.reservation else None,
+            'property_name': self.property.name if self.property else None
         }
 
 class AccessCode(db.Model):

@@ -74,10 +74,19 @@ class MessageService:
             'contract_expiry': (datetime.now(timezone.utc) + timedelta(days=7)).strftime('%B %d, %Y at %H:%M UTC') if guest else ''
         }
         
+        # Add smart lock variables
+        try:
+            from ..services.message_template_service import message_template_service
+            if reservation:
+                smart_lock_vars = message_template_service.get_smart_lock_variables(str(reservation.id))
+                variables.update(smart_lock_vars)
+        except Exception as e:
+            print(f"Warning: Failed to load smart lock variables: {str(e)}")
+
         # Replace variables in content
         for key, value in variables.items():
             content = content.replace('{' + key + '}', str(value))
-            
+
         return content
     
     def _send_sms_sync(self, to_phone: str, content: str) -> str:

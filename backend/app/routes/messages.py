@@ -7,6 +7,7 @@ from ..models import MessageTemplate, ScheduledMessage, Contract, Reservation, P
 from ..utils.auth import require_auth
 from ..utils.messaging import MessageService, MessageScheduler
 from ..utils.database import get_user_by_firebase_uid
+from ..services.message_template_service import message_template_service
 from ..constants import TEMPLATE_TYPES # Import from the new central location
 from datetime import datetime, timezone
 from sqlalchemy import or_
@@ -335,4 +336,115 @@ def schedule_reservation_messages():
         return jsonify({
             'success': False,
             'error': 'Failed to schedule messages'
+        }), 500
+
+@messages_bp.route('/smart-lock-variables', methods=['GET'])
+@require_auth
+def get_smart_lock_variables():
+    """Get available smart lock template variables"""
+    try:
+        user = get_user_by_firebase_uid(g.user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        variables = message_template_service.get_available_smart_lock_variables()
+
+        return jsonify({
+            'success': True,
+            'variables': variables
+        })
+
+    except Exception as e:
+        print(f"Error getting smart lock variables: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to get smart lock variables'
+        }), 500
+
+@messages_bp.route('/create-smart-lock-templates', methods=['POST'])
+@require_auth
+def create_smart_lock_templates():
+    """Create default smart lock templates for a property"""
+    try:
+        user = get_user_by_firebase_uid(g.user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        property_id = request.json.get('property_id')
+        if not property_id:
+            return jsonify({
+                'success': False,
+                'error': 'property_id is required'
+            }), 400
+
+        # Verify user owns the property
+        property_obj = Property.query.get(property_id)
+        if not property_obj or property_obj.user_id != user.id:
+            return jsonify({'error': 'Property not found or access denied'}), 403
+
+        # Create default smart lock templates
+        templates = message_template_service.create_default_smart_lock_templates(
+            str(user.id), property_id
+        )
+
+        return jsonify({
+            'success': True,
+            'message': f'Created {len(templates)} smart lock templates',
+            'templates': templates
+        })
+
+    except Exception as e:
+        print(f"Error creating smart lock templates: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to create smart lock templates'
+        }), 500
+
+@messages_bp.route('/test-smart-lock-template', methods=['POST'])
+@require_auth
+def test_smart_lock_template():
+    """Test smart lock template variable population"""
+    try:
+        user = get_user_by_firebase_uid(g.user_id)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        reservation_id = request.json.get('reservation_id')
+        template_content = request.json.get('content', '')
+
+        if not reservation_id:
+            return jsonify({
+                'success': False,
+                'error': 'reservation_id is required'
+            }), 400
+
+        # Verify user has access to this reservation
+        reservation = Reservation.query.get(reservation_id)
+        if not reservation:
+            return jsonify({'error': 'Reservation not found'}), 404
+
+        property_obj = Property.query.get(reservation.property_id)
+        if not property_obj or property_obj.user_id != user.id:
+            return jsonify({'error': 'Reservation not found or access denied'}), 403
+
+        # Populate smart lock variables in template
+        populated_content = message_template_service.populate_smart_lock_variables(
+            template_content, reservation_id
+        )
+
+        # Also get the variables for reference
+        smart_lock_vars = message_template_service.get_smart_lock_variables(reservation_id)
+
+        return jsonify({
+            'success': True,
+            'original_content': template_content,
+            'populated_content': populated_content,
+            'smart_lock_variables': smart_lock_vars
+        })
+
+    except Exception as e:
+        print(f"Error testing smart lock template: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to test smart lock template'
         }), 500 

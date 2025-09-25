@@ -235,4 +235,90 @@ def delete_property_route(property_id):
         return jsonify({
             'success': False,
             'error': f'Failed to delete property: {str(e)}'
-        }), 500 
+        }), 500
+
+@properties_bp.route('/properties/<property_id>/smart-lock-settings', methods=['GET'])
+@require_auth
+def get_property_smart_lock_settings(property_id):
+    """Get smart lock configuration for a property"""
+    try:
+        # Get user record
+        user = get_user_by_firebase_uid(g.user_id)
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+        # Check if user has access to this property
+        if not check_user_property_permission(user.id, property_id, 'view'):
+            return jsonify({'success': False, 'error': 'Property not found or access denied'}), 404
+
+        # Get property with smart lock settings
+        property_obj = get_property(property_id, user.id)
+        if not property_obj:
+            return jsonify({'success': False, 'error': 'Property not found'}), 404
+
+        return jsonify({
+            'success': True,
+            'property_id': str(property_obj['id']),
+            'smart_lock_type': property_obj.get('smart_lock_type', 'traditional'),
+            'smart_lock_instructions': property_obj.get('smart_lock_instructions'),
+            'smart_lock_settings': property_obj.get('smart_lock_settings', {})
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting smart lock settings: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@properties_bp.route('/properties/<property_id>/smart-lock-settings', methods=['PUT'])
+@require_auth
+def update_property_smart_lock_settings(property_id):
+    """Update smart lock configuration for a property"""
+    try:
+        # Get user record
+        user = get_user_by_firebase_uid(g.user_id)
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+        # Check if user has access to this property
+        if not check_user_property_permission(user.id, property_id, 'edit'):
+            return jsonify({'success': False, 'error': 'Property not found or access denied'}), 404
+
+        # Get update data
+        update_data = request.get_json()
+        if not update_data:
+            return jsonify({'success': False, 'error': 'No update data provided'}), 400
+
+        # Validate smart_lock_type
+        valid_types = ['ttlock', 'manual', 'traditional']
+        smart_lock_type = update_data.get('smart_lock_type')
+        if smart_lock_type and smart_lock_type not in valid_types:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid smart_lock_type. Must be one of: {", ".join(valid_types)}'
+            }), 400
+
+        # Prepare update data for smart lock settings only
+        smart_lock_update = {}
+        if 'smart_lock_type' in update_data:
+            smart_lock_update['smart_lock_type'] = update_data['smart_lock_type']
+        if 'smart_lock_instructions' in update_data:
+            smart_lock_update['smart_lock_instructions'] = update_data['smart_lock_instructions']
+        if 'smart_lock_settings' in update_data:
+            smart_lock_update['smart_lock_settings'] = update_data['smart_lock_settings']
+
+        if not smart_lock_update:
+            return jsonify({'success': False, 'error': 'No smart lock settings provided'}), 400
+
+        # Update property
+        success = update_property(property_id, user.id, smart_lock_update)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Smart lock settings updated successfully'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to update smart lock settings'}), 404
+
+    except Exception as e:
+        logger.error(f"Error updating smart lock settings: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500 
