@@ -157,15 +157,19 @@ class BackgroundJobScheduler:
             'thread_alive': self.thread.is_alive() if self.thread else False
         }
 
-# Global scheduler instance
-background_scheduler = BackgroundJobScheduler()
+# Background job system has been moved to dedicated worker processes
+# See scripts/smart_lock_automation.py, scripts/sync_calendars.py, scripts/send_scheduled_messages.py
+
+# Disabled global scheduler - jobs now run as separate processes
+background_scheduler = None
 
 def init_background_jobs():
-    """Initialize background job system"""
-    logger.info("Initializing background job system")
-    background_scheduler.start()
+    """Background job system moved to dedicated workers - this function is now disabled"""
+    logger.info("Background job system has been moved to dedicated worker processes")
+    logger.info("Start workers with: python scripts/start_workers.py")
+    # Do nothing - background jobs now run as separate processes
 
 def stop_background_jobs():
-    """Stop background job system"""
-    logger.info("Stopping background job system")
-    background_scheduler.stop()
+    """Background job system moved to dedicated workers - this function is now disabled"""
+    logger.info("Background job system has been moved to dedicated worker processes")
+    # Do nothing - background jobs now run as separate processes

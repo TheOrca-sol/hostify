@@ -4,7 +4,6 @@ Reservation passcode management routes
 
 from flask import Blueprint, request, jsonify, g
 from ..services.passcode_service import passcode_service
-from ..services.background_jobs import background_scheduler
 from ..services.notification_service import notification_service
 from ..utils.auth import require_auth
 from ..utils.database import get_user_by_firebase_uid
@@ -175,15 +174,40 @@ def get_pending_manual_passcodes():
 @reservation_passcodes_bp.route('/background-jobs/status', methods=['GET'])
 @require_auth
 def get_background_job_status():
-    """Get background job scheduler status (admin only)"""
+    """Get background job worker status (now running as separate processes)"""
     try:
         # Get user
         user = get_user_by_firebase_uid(g.user_id)
         if not user:
             return jsonify({'success': False, 'error': 'User not found'}), 404
 
-        # Get background job status
-        status = background_scheduler.get_status()
+        # Background jobs now run as separate worker processes
+        # This endpoint provides information about the new architecture
+        status = {
+            'architecture': 'dedicated_workers',
+            'description': 'Background jobs now run as separate worker processes',
+            'workers': [
+                {
+                    'name': 'smart_lock_automation',
+                    'script': 'scripts/smart_lock_automation.py',
+                    'frequency': '5 minutes',
+                    'functions': ['passcode_generation', 'passcode_cleanup']
+                },
+                {
+                    'name': 'calendar_sync',
+                    'script': 'scripts/sync_calendars.py',
+                    'frequency': '5 minutes',
+                    'functions': ['calendar_synchronization']
+                },
+                {
+                    'name': 'message_sending',
+                    'script': 'scripts/send_scheduled_messages.py',
+                    'frequency': '60 seconds',
+                    'functions': ['scheduled_message_delivery']
+                }
+            ],
+            'start_command': 'python scripts/start_workers.py'
+        }
 
         return jsonify({
             'success': True,

@@ -10,6 +10,7 @@ import ContractList from '../components/ContractList'
 import TeamsManagement from './TeamsManagement'
 import OccupancyCalendar from '../components/OccupancyCalendar'
 import PropertyOccupancyChart from '../components/PropertyOccupancyChart'
+import PendingPasscodes from '../components/PendingPasscodes'
 import { Home, Calendar, Users, Mail, BarChart, FileText, UserCheck, RefreshCw, CheckCircle, UserPlus, Activity, Database } from 'lucide-react'
 
 export default function Dashboard() {
@@ -437,6 +438,9 @@ export default function Dashboard() {
                   )}
                 </div>
               </div>
+
+              {/* Pending Passcodes Widget */}
+              <PendingPasscodes />
 
               {/* Occupancy Analysis */}
               {occupancyData && (

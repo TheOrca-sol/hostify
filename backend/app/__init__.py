@@ -25,7 +25,7 @@ from .routes.kyc import kyc_bp
 from .routes.smart_locks import smart_locks_bp
 from .routes.webhooks import webhooks_bp
 from .routes.reservation_passcodes import reservation_passcodes_bp
-from .services.background_jobs import init_background_jobs
+# Background jobs moved to dedicated worker scripts
 import os
 from datetime import datetime
 
@@ -100,8 +100,7 @@ def create_app():
     app.register_blueprint(webhooks_bp, url_prefix='/api')
     app.register_blueprint(reservation_passcodes_bp, url_prefix='/api')
 
-    # Initialize background job system
-    with app.app_context():
-        init_background_jobs()
+    # Background job system removed - now runs in dedicated worker processes
+    # Start workers with: python scripts/start_workers.py
 
     return app 

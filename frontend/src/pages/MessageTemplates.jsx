@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react'
 import { Plus, Edit2, Trash2, Send } from 'lucide-react'
 import { api } from '../services/api'
-import MessageTemplateForm from '../components/MessageTemplateForm'
+import EnhancedMessageTemplateEditor from '../components/EnhancedMessageTemplateEditor'
 import { toast } from '../components/Toaster'
 
 export default function MessageTemplates() {
   const [templates, setTemplates] = useState([])
   const [templateTypes, setTemplateTypes] = useState([])
   const [properties, setProperties] = useState([])
+  const [reservations, setReservations] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -17,6 +18,7 @@ export default function MessageTemplates() {
   useEffect(() => {
     fetchTemplates()
     fetchProperties()
+    fetchReservations()
   }, [])
 
   const fetchTemplates = async () => {
@@ -47,6 +49,16 @@ export default function MessageTemplates() {
     }
   }
 
+  const fetchReservations = async () => {
+    try {
+      const response = await api.getReservations()
+      setReservations(response.reservations || [])
+    } catch (err) {
+      console.error('Failed to load reservations:', err)
+      setReservations([])
+    }
+  }
+
   const handleCreateTemplate = () => {
     setEditingTemplate(null)
     setIsModalOpen(true)
@@ -72,18 +84,29 @@ export default function MessageTemplates() {
     try {
       if (editingTemplate) {
         // Update existing template
-        const updated = await api.updateMessageTemplate(editingTemplate.id, templateData)
-        setTemplates(templates.map(t => t.id === updated.id ? updated : t))
+        const response = await api.updateMessageTemplate(editingTemplate.id, templateData)
+        if (response.success) {
+          setTemplates(templates.map(t => t.id === editingTemplate.id ? {...editingTemplate, ...templateData} : t))
+          toast.success('Template updated successfully!')
+        } else {
+          throw new Error(response.error || 'Failed to update template')
+        }
       } else {
         // Create new template
-        const created = await api.createMessageTemplate(templateData)
-        setTemplates(prevTemplates => [created, ...(prevTemplates || [])])
+        const response = await api.createMessageTemplate(templateData)
+        if (response.success) {
+          setTemplates(prevTemplates => [{...templateData, id: response.template.id}, ...(prevTemplates || [])])
+          toast.success('Template created successfully!')
+        } else {
+          throw new Error(response.error || 'Failed to create template')
+        }
       }
       setIsModalOpen(false)
       setEditingTemplate(null)
     } catch (err) {
       console.error('Failed to save template:', err)
       setError('Failed to save template')
+      toast.error('Failed to save template')
     }
   }
 
@@ -173,20 +196,33 @@ export default function MessageTemplates() {
         </div>
       )}
 
-      {/* Template Form Modal */}
+      {/* Enhanced Template Editor Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <MessageTemplateForm
-              template={editingTemplate}
-              properties={properties}
-              templateTypes={templateTypes}
-              onSubmit={handleFormSubmit}
-              onCancel={() => {
-                setIsModalOpen(false)
-                setEditingTemplate(null)
-              }}
-            />
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-6xl max-h-[95vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">
+                  {editingTemplate ? 'Edit Template' : 'Create Template'}
+                </h2>
+                <button
+                  onClick={() => {
+                    setIsModalOpen(false)
+                    setEditingTemplate(null)
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <Plus className="w-6 h-6 rotate-45" />
+                </button>
+              </div>
+
+              <EnhancedMessageTemplateEditor
+                template={editingTemplate}
+                onSave={handleFormSubmit}
+                reservations={reservations}
+                properties={properties}
+              />
+            </div>
           </div>
         </div>
       )}

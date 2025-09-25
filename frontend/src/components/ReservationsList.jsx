@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../services/api'
-import { Search, SlidersHorizontal } from 'lucide-react'
+import { Search, SlidersHorizontal, Lock } from 'lucide-react'
 import { useDebounce } from '../hooks/useDebounce'
 
 export default function ReservationsList() {
@@ -92,6 +93,48 @@ export default function ReservationsList() {
 
   const ReservationCard = ({ reservation }) => {
     const status = getStatusPill(reservation)
+    const [passcodeData, setPasscodeData] = useState(null)
+    const [loadingPasscode, setLoadingPasscode] = useState(true)
+
+    useEffect(() => {
+      const loadPasscodeData = async () => {
+        try {
+          const result = await api.getReservationPasscode(reservation.id)
+          if (result.success) {
+            setPasscodeData(result.passcode_data)
+          }
+        } catch (error) {
+          console.error('Error loading passcode data:', error)
+        } finally {
+          setLoadingPasscode(false)
+        }
+      }
+
+      loadPasscodeData()
+    }, [reservation.id])
+
+    const getPasscodeStatus = () => {
+      if (loadingPasscode) {
+        return { text: '...', color: 'text-gray-400' }
+      }
+
+      if (!passcodeData) {
+        return { text: 'No passcode', color: 'text-gray-500' }
+      }
+
+      if (passcodeData.passcode) {
+        return {
+          text: passcodeData.passcode,
+          color: 'text-green-600',
+          icon: <Lock className="w-3 h-3" />
+        }
+      }
+
+      return { text: 'Pending', color: 'text-orange-600' }
+    }
+
+    const passcodeStatus = getPasscodeStatus()
+
     return (
       <div className="bg-white border border-gray-200 rounded-lg p-5 flex flex-col justify-between hover:shadow-lg transition-shadow duration-200">
         <div>
@@ -113,11 +156,23 @@ export default function ReservationsList() {
             <p><strong>Check-in:</strong> {formatDate(reservation.check_in)}</p>
             <p><strong>Check-out:</strong> {formatDate(reservation.check_out)}</p>
             {reservation.phone_partial && <p><strong>Phone:</strong> {reservation.phone_partial}</p>}
+            <div className="flex items-center space-x-2 mt-2 pt-2 border-t border-gray-100">
+              <span className="text-xs font-medium text-gray-600">Smart Lock:</span>
+              <div className={`flex items-center space-x-1 ${passcodeStatus.color}`}>
+                {passcodeStatus.icon}
+                <span className="text-xs font-mono">
+                  {passcodeStatus.text}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
-        <button className="mt-4 w-full text-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+        <Link
+          to={`/reservations/${reservation.id}`}
+          className="mt-4 w-full text-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 block"
+        >
           View Details
-        </button>
+        </Link>
       </div>
     )
   }

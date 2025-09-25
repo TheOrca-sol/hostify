@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../services/api'
 import { toast } from '../components/Toaster'
 import SmartLockManagement from '../components/SmartLockManagement'
+import PropertySmartLockSettings from '../components/PropertySmartLockSettings'
 import { Lock, Home, ArrowLeft } from 'lucide-react'
 
 export default function PropertyLocks() {
@@ -88,6 +89,11 @@ export default function PropertyLocks() {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Property Smart Lock Settings */}
+        <div className="mb-6">
+          <PropertySmartLockSettings propertyId={property.id} />
         </div>
 
         {/* Property Smart Lock Management */}

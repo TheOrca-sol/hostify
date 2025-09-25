@@ -432,14 +432,6 @@ export default function SmartLocks() {
                   <p>2. Click on property cards above to manage individual property locks</p>
                   <p>3. Use "Test Code" button to generate random passcodes</p>
                   <p>4. Use "Unassign" button to move locks between properties</p>
-                  <p>5. Check your Flask logs to see the API calls in action</p>
-                </div>
-
-                <div className="mt-4 p-3 bg-blue-100 rounded">
-                  <p className="text-sm text-blue-700">
-                    <strong>Note:</strong> Make sure your backend server is running with ngrok tunnel active
-                    for webhook functionality.
-                  </p>
                 </div>
               </div>
             )}

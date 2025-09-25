@@ -16,6 +16,7 @@ import InvitationAcceptance from './pages/InvitationAcceptance'
 import TeamDetails from './pages/TeamDetails'
 import SmartLocks from './pages/SmartLocks'
 import PropertyLocks from './pages/PropertyLocks'
+import ReservationDetails from './pages/ReservationDetails'
 
 // Protected route wrapper
 const ProtectedRoute = ({ children, allowProfileSetup = false }) => {
@@ -137,6 +138,12 @@ function App() {
               <ProtectedRoute>
                 <Navbar />
                 <PropertyLocks />
+              </ProtectedRoute>
+            } />
+            <Route path="/reservations/:id" element={
+              <ProtectedRoute>
+                <Navbar />
+                <ReservationDetails />
               </ProtectedRoute>
             } />
           </Routes>

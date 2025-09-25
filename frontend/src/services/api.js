@@ -1768,6 +1768,209 @@ export const api = {
       console.error('Error getting access logs:', error);
       return { success: false, error: error.message };
     }
+  },
+
+  // Smart Lock Property Settings
+  async getPropertySmartLockSettings(propertyId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/smart-lock-settings`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting property smart lock settings:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async updatePropertySmartLockSettings(propertyId, settings) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/properties/${propertyId}/smart-lock-settings`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(settings)
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating property smart lock settings:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Reservation Passcode Management
+  async generateReservationPasscode(reservationId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/reservations/${reservationId}/passcode`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating reservation passcode:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getReservationPasscode(reservationId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/reservations/${reservationId}/passcode`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting reservation passcode:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async updateManualPasscode(passcodeId, passcode) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/reservation-passcodes/${passcodeId}/manual-update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ passcode })
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error updating manual passcode:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async revokeReservationPasscode(reservationId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/reservations/${reservationId}/passcode`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error revoking reservation passcode:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getPendingManualPasscodes() {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/pending-manual-passcodes`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting pending manual passcodes:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async resendPasscodeNotification(passcodeId, type = 'auto') {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/reservation-passcodes/${passcodeId}/resend-notification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ type })
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error resending passcode notification:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getNotificationHistory(limit = 10) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/notification-history?limit=${limit}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting notification history:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Smart Lock Message Templates
+  async getSmartLockVariables() {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/messages/smart-lock-variables`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting smart lock variables:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async createSmartLockTemplates(propertyId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/messages/create-smart-lock-templates`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ property_id: propertyId })
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating smart lock templates:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async testSmartLockTemplate(reservationId, content) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/messages/test-smart-lock-template`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          reservation_id: reservationId,
+          content
+        })
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error testing smart lock template:', error);
+      return { success: false, error: error.message };
+    }
   }
 };
 
