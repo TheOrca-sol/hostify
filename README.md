@@ -1,15 +1,24 @@
-# 🏠 Hostify - Automated Property Management Platform
+# 🏠 Hostify - Smart Property Management Platform
 
-Hostify is a comprehensive multi-role property management system designed to automate the most time-consuming tasks for rental hosts, co-hosts, agencies, and service teams. It handles iCal sync, guest verification, automated communication, team management, contract generation, and provides advanced analytics - allowing you to focus on providing a great guest experience.
+Hostify is a comprehensive multi-role property management system with intelligent **smart lock automation**, designed to eliminate the most time-consuming tasks for rental hosts, co-hosts, agencies, and service teams. It features automated passcode generation, guest verification, smart communication, team management, contract handling, and advanced analytics - allowing you to focus on providing exceptional guest experiences.
 
 ## 🌟 Core Features
 
+### 🔐 Smart Lock Automation & Access Management
+- **TTLock Integration:** Automated passcode generation 3 hours before check-in with real-time sync
+- **Multi-Access Types:** Support for TTLock automated, manual smart locks, and traditional key access
+- **Intelligent Timing:** Passcodes valid from 1 hour before check-in to 1 hour after check-out
+- **Host Notifications:** SMS alerts for passcode generation and manual entry requirements
+- **Dashboard Widgets:** Real-time pending passcode alerts with urgency indicators
+- **Property Configuration:** Per-property smart lock type settings with custom guest instructions
+
 ### 🏢 Property & Reservation Management
-- **Multi-Property Support:** Manage all your properties from a single unified dashboard.
-- **iCal Sync:** Automatically syncs reservations from platforms like Airbnb, Booking.com, and Vrbo.
-- **Smart Parsing:** Intelligently parses iCal data to identify and ignore blocked periods, extracting guest confirmation codes and partial phone numbers.
-- **Advanced Search & Filtering:** Easily search and navigate through all your reservations and guests with powerful filters.
-- **Occupancy Analytics:** Interactive charts and calendar views showing property utilization rates with period selection (week/month/quarter/year).
+- **Multi-Property Support:** Manage all your properties from a single unified dashboard
+- **iCal Sync:** Automatically syncs reservations from platforms like Airbnb, Booking.com, and Vrbo
+- **Smart Parsing:** Intelligently parses iCal data to identify and ignore blocked periods, extracting guest confirmation codes and partial phone numbers
+- **Advanced Search & Filtering:** Easily search and navigate through all your reservations and guests with powerful filters
+- **Occupancy Analytics:** Interactive charts and calendar views showing property utilization rates with period selection (week/month/quarter/year)
+- **Passcode Status Tracking:** Visual indicators showing smart lock passcode status across all reservations
 
 ### 👥 Multi-Role Team Management
 - **Flexible Role System:** Support for property owners, co-hosts, agencies, cleaners, and maintenance workers.
@@ -26,12 +35,15 @@ Hostify is a comprehensive multi-role property management system designed to aut
 - **Contract Signing Flow:** Secure digital signature capture and contract management system.
 - **Host Review:** Securely view uploaded documents to manually verify guest information.
 
-### 💬 Automated Communication Engine
-- **Customizable Message Templates:** Create and manage a full suite of SMS templates for every stage of the guest journey.
-- **Powerful Automation Rules:** Build rules to schedule messages based on triggers like "2 days before check-in" or "4 hours after check-out."
-- **Centralized Control:** The automation sequence for a guest is triggered only when you manually send the verification link, giving you full control.
-- **Background Worker:** A reliable background process runs continuously to send scheduled messages at the correct time.
-- **SMS Authentication:** Phone-based login system for service workers with verification codes.
+### 💬 Smart Communication Engine
+- **Smart Lock Variables:** Advanced message templates with dynamic smart lock information (`{smart_lock_passcode}`, `{lock_passcode_section}`)
+- **Live Template Testing:** Real-time template preview with actual reservation data
+- **Variable Categories:** Organized smart lock, guest, property, and timing variables
+- **Customizable Templates:** Full suite of SMS templates for every stage of the guest journey
+- **Powerful Automation Rules:** Schedule messages based on triggers like "2 days before check-in" or "4 hours after check-out"
+- **Centralized Control:** Manual trigger system gives you complete control over guest communication flow
+- **Background Workers:** Reliable dedicated processes for message delivery and smart lock automation
+- **SMS Authentication:** Phone-based login system for service workers with verification codes
 
 ### 📊 Advanced Analytics & Insights
 - **Interactive Occupancy Dashboard:** Visual charts and calendar heatmaps showing property utilization.
@@ -45,13 +57,15 @@ Hostify is a comprehensive multi-role property management system designed to aut
 
 | Component | Technology | Purpose |
 |-----------|------------|---------|
-| **Frontend** | React + Vite + TailwindCSS | Modern, responsive UI with interactive charts |
-| **Backend** | Flask + SQLAlchemy | API and business logic with multi-role support |
-| **Database** | PostgreSQL | Data storage with UUID primary keys |
+| **Frontend** | React + Vite + TailwindCSS | Modern, responsive UI with smart lock management |
+| **Backend** | Flask + SQLAlchemy | API and business logic with smart lock automation |
+| **Database** | PostgreSQL | Data storage with UUID primary keys and smart lock models |
 | **Auth** | Firebase Auth | Multi-method authentication (Google, Email, SMS) |
+| **Smart Locks** | TTLock API | Automated passcode generation and lock management |
 | **OCR** | Tesseract | Document processing and data extraction |
-| **SMS** | Twilio | SMS notifications and phone authentication |
+| **SMS** | Twilio | SMS notifications, phone authentication, and smart lock alerts |
 | **PDF Generation** | ReportLab + Pillow | Contract generation with digital signatures |
+| **Background Jobs** | Dedicated Worker Processes | Smart lock automation, calendar sync, message delivery |
 | **Migrations** | Flask-Migrate (Alembic) | Database schema management |
 
 ---
@@ -109,7 +123,7 @@ You will need to run three processes in separate terminals:
 ```bash
 cd backend
 source venv/bin/activate
-flask run
+python run.py
 ```
 
 **Terminal 2: Run the Frontend Dev Server**
@@ -118,14 +132,19 @@ cd frontend
 npm run dev
 ```
 
-**Terminal 3: Run the Automation Engine**
+**Terminal 3: Run the Background Workers**
 ```bash
 cd backend
 source venv/bin/activate
-python scripts/send_scheduled_messages.py
+python scripts/start_workers.py
 ```
 
-The application will now be available at `http://localhost:3000`.
+This starts three dedicated worker processes:
+- **Smart Lock Automation** (5 min intervals) - Passcode generation and cleanup
+- **Calendar Sync** (5 min intervals) - Property reservation synchronization
+- **Message Delivery** (60 sec intervals) - Scheduled SMS notifications
+
+The application will be available at `http://localhost:3000` with full smart lock automation.
 
 ---
 
@@ -174,20 +193,28 @@ hostify/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/         # Reusable UI components
-│   │   │   ├── PhoneInput.jsx          # International phone input
-│   │   │   ├── SignatureCapture.jsx    # Digital signature capture
-│   │   │   ├── OccupancyCalendar.jsx   # Interactive occupancy heatmap
-│   │   │   └── PropertyOccupancyChart.jsx # Property performance charts
+│   │   │   ├── PhoneInput.jsx                  # International phone input
+│   │   │   ├── SignatureCapture.jsx            # Digital signature capture
+│   │   │   ├── OccupancyCalendar.jsx           # Interactive occupancy heatmap
+│   │   │   ├── PropertyOccupancyChart.jsx      # Property performance charts
+│   │   │   ├── PendingPasscodes.jsx            # Smart lock dashboard widget
+│   │   │   ├── PropertySmartLockSettings.jsx   # Property smart lock configuration
+│   │   │   ├── ReservationPasscodeManager.jsx  # Individual reservation passcode management
+│   │   │   ├── EnhancedMessageTemplateEditor.jsx # Template editor with smart lock variables
+│   │   │   └── SmartLockVariableSelector.jsx   # Smart lock template variable helper
 │   │   ├── pages/              # Main application pages
-│   │   │   ├── Dashboard.jsx           # Multi-role dashboard with analytics
+│   │   │   ├── Dashboard.jsx           # Multi-role dashboard with pending passcode alerts
 │   │   │   ├── TeamManagement.jsx      # Team invitation and management
 │   │   │   ├── InvitationAcceptance.jsx # Team invitation landing page
 │   │   │   ├── ContractSigning.jsx     # Digital contract signing
-│   │   │   └── ProfileSetup.jsx        # User profile with signature
+│   │   │   ├── ProfileSetup.jsx        # User profile with signature
+│   │   │   ├── ReservationDetails.jsx  # Comprehensive reservation and passcode management
+│   │   │   ├── PropertyLocks.jsx       # Property smart lock configuration page
+│   │   │   └── MessageTemplates.jsx    # Enhanced template management with smart lock variables
 │   │   ├── services/           # API and authentication services
-│   │   │   ├── api.js                  # Centralized API calls
+│   │   │   ├── api.js                  # Centralized API calls with smart lock endpoints
 │   │   │   └── auth.jsx                # Multi-method Firebase auth
-│   │   └── App.jsx             # Main routing and app structure
+│   │   └── App.jsx             # Main routing with smart lock pages
 ├── backend/
 │   ├── app/
 │   │   ├── routes/             # API endpoints
@@ -195,17 +222,28 @@ hostify/
 │   │   │   ├── sms_auth.py            # SMS authentication APIs
 │   │   │   ├── contracts.py           # Contract generation and signing
 │   │   │   ├── dashboard.py           # Analytics and occupancy data
-│   │   │   └── verification.py        # Guest verification flow
-│   │   ├── utils/              # Business logic utilities
+│   │   │   ├── verification.py        # Guest verification flow
+│   │   │   ├── smart_locks.py         # TTLock integration and device management
+│   │   │   ├── reservation_passcodes.py # Smart lock passcode management APIs
+│   │   │   └── properties.py          # Property management with smart lock settings
+│   │   ├── services/           # Business logic services
 │   │   │   ├── team_management.py     # Team invitation and permissions
 │   │   │   ├── sms_auth.py           # SMS verification service
 │   │   │   ├── pdf_generator.py      # Contract PDF generation
+│   │   │   ├── passcode_service.py   # Smart lock passcode generation and management
+│   │   │   ├── ttlock_service.py     # TTLock API integration service
+│   │   │   └── message_template_service.py # Template processing with smart lock variables
+│   │   ├── utils/              # Business logic utilities
 │   │   │   ├── database.py           # Occupancy calculations
-│   │   │   └── automation.py         # Message automation engine
-│   │   └── models.py           # SQLAlchemy database models
+│   │   │   ├── automation.py         # Message automation engine
+│   │   │   └── messaging.py          # SMS delivery with smart lock integration
+│   │   └── models.py           # SQLAlchemy database models with smart lock tables
 │   ├── migrations/             # Database schema migrations
-│   ├── scripts/                # Standalone background scripts
-│   │   └── send_scheduled_messages.py  # Automation worker
+│   ├── scripts/                # Dedicated background worker processes
+│   │   ├── start_workers.py          # Worker process manager
+│   │   ├── smart_lock_automation.py  # Smart lock passcode generation worker
+│   │   ├── send_scheduled_messages.py # Message delivery worker
+│   │   └── sync_calendars.py         # Calendar synchronization worker
 │   ├── contracts/              # Generated contract files
 │   ├── uploads/                # Guest document uploads
 │   └── run.py                  # Flask application entry point
@@ -214,12 +252,55 @@ hostify/
 
 ## 🎯 Key Database Models
 
-- **User**: Multi-role user accounts with signatures and phone numbers
-- **Property**: Property information with team management
+- **User**: Multi-role user accounts with signatures, phone numbers, and TTLock credentials
+- **Property**: Property information with team management and smart lock configuration
 - **PropertyTeamMember**: Role-based team member assignments
 - **TeamInvitation**: Email and SMS invitation tracking
 - **PhoneVerification**: SMS authentication codes and verification
-- **Reservation**: Guest bookings with iCal sync
+- **Reservation**: Guest bookings with iCal sync and passcode integration
+- **ReservationPasscode**: Smart lock passcodes with validity periods and generation methods
+- **SmartLock**: TTLock device information and property assignments
+- **AccessCode**: Individual smart lock passcodes with usage tracking
+- **AccessLog**: Smart lock access history and audit trail
 - **Guest**: Guest information with document verification
 - **Contract**: Digital contracts with signature management
-- **MessageTemplate**: Automated communication templates
+- **MessageTemplate**: Automated communication templates with smart lock variables
+
+---
+
+## 🔐 Smart Lock Features
+
+### 🎯 **Property-Level Configuration**
+- **TTLock Automated**: Full automation with 3-hour advance passcode generation
+- **Manual Smart Lock**: Dashboard-driven passcode entry with SMS alerts
+- **Traditional Access**: Custom instructions for key/lockbox access
+
+### 📱 **Dashboard Widgets**
+- **Pending Passcodes**: Real-time alerts with urgency indicators (Very Urgent < 6hrs, Urgent < 12hrs)
+- **Passcode Status**: Visual indicators across all reservation listings
+- **One-Click Actions**: Quick passcode entry and guest notifications
+
+### 💬 **Smart Template Variables**
+- `{smart_lock_passcode}` - The actual numeric passcode
+- `{lock_passcode_section}` - Complete formatted passcode section
+- `{smart_lock_instructions}` - Custom property access instructions
+- `{passcode_valid_from}` / `{passcode_valid_until}` - Validity timing
+- `{smart_lock_type}` - Property access method type
+
+### 🤖 **Background Automation**
+- **Automatic Generation**: TTLock passcodes created 3 hours before check-in
+- **SMS Notifications**: Hosts receive alerts for both automated and manual passcodes
+- **Cleanup Processing**: Expired passcodes automatically marked and cleaned up
+- **Dedicated Workers**: Separate processes for reliability and scaling
+
+---
+
+## 🚀 **Getting Started with Smart Locks**
+
+1. **Configure Property**: Set smart lock type in property settings
+2. **Connect TTLock**: Add TTLock credentials for automated properties
+3. **Create Templates**: Use smart lock variables in your message templates
+4. **Start Workers**: Run background processes for automation
+5. **Monitor Dashboard**: Track pending passcodes and guest access
+
+The smart lock system integrates seamlessly with your existing workflow, providing automated access management without disrupting your current guest communication process.
