@@ -19,12 +19,19 @@ export default function SmartLockManagement({ property }) {
   const fetchLocks = async () => {
     try {
       setLoading(true)
+
+      // Get property-specific locks
       const result = await api.getPropertySmartLocks(property.id)
       if (result.success) {
         setLocks(result.smart_locks || [])
-        // Set connection status based on whether we have locks
-        setIsConnected(result.smart_locks && result.smart_locks.length > 0)
       }
+
+      // Get proper connection status using the dedicated API
+      const statusResult = await api.getTTLockConnectionStatus()
+      if (statusResult.success) {
+        setIsConnected(statusResult.is_connected)
+      }
+
     } catch (error) {
       console.error('Error fetching locks:', error)
       toast.error('Failed to load smart locks')
@@ -36,20 +43,26 @@ export default function SmartLockManagement({ property }) {
   const connectTTLockAccount = async () => {
     try {
       setConnecting(true)
-      const credentials = {
-        ...ttlockCredentials,
-        property_id: property.id
-      }
-      const result = await api.connectTTLockAccount(credentials)
+      const result = await api.connectTTLockAccount(ttlockCredentials)
 
       if (result.success) {
-        toast.success(`TTLock account connected! Found ${result.locks_count} locks`)
+        const message = result.locks_count > 0
+          ? `TTLock account connected! Found ${result.locks_count} locks (unassigned)`
+          : 'TTLock account connected! No locks found'
+        toast.success(message)
         setIsConnected(true)
         setShowConnectForm(false)
         setTtlockCredentials({ username: '', password: '' })
 
-        // Refresh the locks list to show the newly connected locks
+        // Refresh the locks list (this will update connection status)
         await fetchLocks()
+
+        // Notify parent component about new unassigned locks
+        if (result.locks_count > 0) {
+          setTimeout(() => {
+            toast.info('Go to the main Smart Locks page to assign your locks to properties')
+          }, 2000)
+        }
       } else {
         toast.error(result.error || 'Failed to connect TTLock account')
       }
@@ -82,10 +95,13 @@ export default function SmartLockManagement({ property }) {
       const result = await api.disconnectTTLockAccount()
 
       if (result.success) {
-        toast.success('TTLock account disconnected successfully')
+        toast.success('TTLock account disconnected and all locks deleted')
         setIsConnected(false)
         setLocks([])
         setTtlockCredentials({ username: '', password: '' })
+
+        // Refresh the connection status to reflect changes across the app
+        await fetchLocks()
       } else {
         toast.error(result.error || 'Failed to disconnect TTLock account')
       }
@@ -94,6 +110,23 @@ export default function SmartLockManagement({ property }) {
       toast.error('Failed to disconnect TTLock account')
     } finally {
       setDisconnecting(false)
+    }
+  }
+
+  const unassignLock = async (lockId) => {
+    try {
+      const result = await api.unassignSmartLockFromProperty(lockId)
+
+      if (result.success) {
+        toast.success(result.message)
+        // Refresh the locks list to remove the unassigned lock
+        await fetchLocks()
+      } else {
+        toast.error(result.error || 'Failed to unassign lock')
+      }
+    } catch (error) {
+      console.error('Error unassigning lock:', error)
+      toast.error('Failed to unassign lock')
     }
   }
 
@@ -223,11 +256,16 @@ export default function SmartLockManagement({ property }) {
       {locks.length === 0 ? (
         <div className="text-center py-8">
           <Lock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h4 className="text-lg font-medium text-gray-900 mb-2">No Smart Locks Connected</h4>
+          <h4 className="text-lg font-medium text-gray-900 mb-2">
+            {isConnected ? 'No Locks Assigned to This Property' : 'No Smart Locks Connected'}
+          </h4>
           <p className="text-gray-600 mb-4">
-            Connect your TTLock account to manage smart locks for this property.
+            {isConnected
+              ? 'You have TTLock connected but no locks are assigned to this property. Go to the main Smart Locks page to assign locks.'
+              : 'Connect your TTLock account to manage smart locks.'
+            }
           </p>
-          {!showConnectForm && (
+          {!showConnectForm && !isConnected && (
             <button
               onClick={() => setShowConnectForm(true)}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
@@ -281,6 +319,14 @@ export default function SmartLockManagement({ property }) {
                       Test Code
                     </button>
 
+                    <button
+                      onClick={() => unassignLock(lock.id)}
+                      className="bg-orange-600 text-white px-3 py-1 rounded text-sm hover:bg-orange-700 flex items-center"
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      Unassign
+                    </button>
+
                     <button className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700 flex items-center">
                       <Settings className="w-3 h-3 mr-1" />
                       Settings
@@ -296,18 +342,11 @@ export default function SmartLockManagement({ property }) {
       {/* Connection Status */}
       {isConnected && (
         <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <Wifi className="w-4 h-4 text-green-600 mr-2" />
-              <span className="text-sm text-green-800">TTLock account connected successfully</span>
-            </div>
-            <button
-              onClick={disconnectTTLockAccount}
-              disabled={disconnecting}
-              className="text-red-600 hover:text-red-800 text-sm px-3 py-1 border border-red-300 rounded hover:bg-red-50 disabled:opacity-50"
-            >
-              {disconnecting ? 'Disconnecting...' : 'Disconnect'}
-            </button>
+          <div className="flex items-center">
+            <Wifi className="w-4 h-4 text-green-600 mr-2" />
+            <span className="text-sm text-green-800">
+              TTLock account connected {locks.length === 0 ? '(assign locks from main page)' : ''}
+            </span>
           </div>
         </div>
       )}

@@ -15,6 +15,46 @@ logger = logging.getLogger(__name__)
 
 smart_locks_bp = Blueprint('smart_locks', __name__)
 
+@smart_locks_bp.route('/ttlock/status', methods=['GET'])
+@require_auth
+def get_ttlock_connection_status():
+    """Get TTLock connection status for the current user"""
+    try:
+        # Get user record
+        user = get_user_by_firebase_uid(g.user_id)
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+        # Check if user has TTLock credentials and if they're valid
+        is_connected = user.is_ttlock_token_valid()
+
+        # Get count of user's locks (both assigned and unassigned)
+        assigned_locks_count = SmartLock.query.filter_by(user_id=user.id).filter(SmartLock.property_id.isnot(None)).count()
+        unassigned_locks_count = SmartLock.query.filter_by(user_id=user.id, property_id=None).count()
+        total_locks_count = assigned_locks_count + unassigned_locks_count
+
+        # Get decrypted username if available
+        ttlock_username = None
+        if is_connected and user.ttlock_username_encrypted:
+            try:
+                credentials = user.get_ttlock_credentials()
+                ttlock_username = credentials['username'] if credentials else None
+            except Exception:
+                pass  # Ignore decryption errors
+
+        return jsonify({
+            'success': True,
+            'is_connected': is_connected,
+            'assigned_locks_count': assigned_locks_count,
+            'unassigned_locks_count': unassigned_locks_count,
+            'total_locks_count': total_locks_count,
+            'ttlock_username': ttlock_username
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting TTLock connection status: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @smart_locks_bp.route('/ttlock/connect', methods=['POST'])
 @require_auth
 def connect_ttlock_account():
@@ -32,18 +72,9 @@ def connect_ttlock_account():
 
         username = auth_data.get('username')  # TTLock app username (phone number or email)
         password = auth_data.get('password')  # TTLock app password
-        property_id = auth_data.get('property_id')  # Which property to associate locks with
 
         if not username or not password:
             return jsonify({'success': False, 'error': 'TTLock app username and password required'}), 400
-
-        if not property_id:
-            return jsonify({'success': False, 'error': 'property_id is required'}), 400
-
-        # Verify property ownership
-        property_obj = Property.query.filter_by(id=property_id, user_id=user.id).first()
-        if not property_obj:
-            return jsonify({'success': False, 'error': 'Property not found or access denied'}), 404
 
         # Authenticate with TTLock OAuth
         auth_result = ttlock_service.authenticate_with_app_credentials(username, password)
@@ -81,7 +112,7 @@ def connect_ttlock_account():
                         existing_lock.updated_at = datetime.now(timezone.utc)
                         stored_locks.append(existing_lock.to_dict())
                     else:
-                        # Create new lock
+                        # Create new lock (unassigned to any property initially)
                         lock_version_data = lock_data.get('lockVersion')
                         lock_version_str = None
                         if isinstance(lock_version_data, dict):
@@ -91,7 +122,8 @@ def connect_ttlock_account():
                             lock_version_str = str(lock_version_data)
 
                         smart_lock = SmartLock(
-                            property_id=property_id,
+                            user_id=user.id,  # Assign to user, not specific property
+                            property_id=None,  # Initially unassigned
                             ttlock_id=str(lock_data['lockId']),
                             lock_name=lock_data.get('lockName', 'TTLock'),
                             gateway_mac=lock_data.get('gatewayMac'),
@@ -235,6 +267,7 @@ def add_smart_lock(property_id):
 
         # Create smart lock record
         smart_lock = SmartLock(
+            user_id=user.id,  # ✅ FIX: Assign to user
             property_id=property_id,
             ttlock_id=lock_data['ttlock_id'],
             lock_name=lock_data['lock_name'],
@@ -667,7 +700,13 @@ def disconnect_ttlock_account():
 
         # Clear all TTLock credentials
         user.clear_ttlock_credentials()
+
+        # Delete all smart locks associated with this user (complete removal)
+        deleted_count = SmartLock.query.filter_by(user_id=user.id).delete()
+
         db.session.commit()
+
+        logger.info(f"Disconnected TTLock account and deleted {deleted_count} smart locks for user {user.id}")
 
         return jsonify({
             'success': True,
@@ -676,5 +715,221 @@ def disconnect_ttlock_account():
 
     except Exception as e:
         logger.error(f"Failed to disconnect TTLock account: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@smart_locks_bp.route('/ttlock/sync', methods=['POST'])
+@require_auth
+def sync_ttlock_locks():
+    """Sync locks from TTLock account (fetch new locks and update existing ones)"""
+    try:
+        # Get user record
+        user = get_user_by_firebase_uid(g.user_id)
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+        # Check if user has TTLock credentials
+        if not user.is_ttlock_token_valid():
+            return jsonify({'success': False, 'error': 'TTLock account not connected or token expired'}), 401
+
+        # Set user context for TTLock service
+        ttlock_service.set_user_context(user)
+
+        # Ensure we have a valid access token
+        if not ttlock_service.ensure_authenticated():
+            return jsonify({'success': False, 'error': 'TTLock authentication failed. Please reconnect your account.'}), 401
+
+        # Debug logging
+        logger.info(f"Syncing locks with access token: {ttlock_service.access_token[:20]}..." if ttlock_service.access_token else "No access token available")
+
+        # Fetch locks from TTLock API
+        locks_data = ttlock_service.get_locks()
+        if not locks_data:
+            return jsonify({'success': False, 'error': 'Failed to fetch locks from TTLock API'}), 500
+
+        new_locks_count = 0
+        updated_locks_count = 0
+        existing_lock_ids = set()
+
+        # Process each lock from TTLock API
+        for lock_data in locks_data:
+            ttlock_id = str(lock_data['lockId'])
+
+            # Check if lock already exists
+            existing_lock = SmartLock.query.filter_by(
+                user_id=user.id,
+                ttlock_id=ttlock_id
+            ).first()
+
+            if existing_lock:
+                # Update existing lock
+                existing_lock.lock_name = lock_data.get('lockName', existing_lock.lock_name)
+                existing_lock.battery_level = lock_data.get('electricQuantity', existing_lock.battery_level)
+                existing_lock.updated_at = datetime.now(timezone.utc)
+
+                # Update settings if available
+                if 'autoLockTime' in lock_data:
+                    settings = existing_lock.settings or {}
+                    settings['auto_lock_time'] = lock_data['autoLockTime']
+                    existing_lock.settings = settings
+
+                updated_locks_count += 1
+                existing_lock_ids.add(ttlock_id)
+            else:
+                # Create new lock (unassigned initially)
+                lock_version_data = lock_data.get('lockVersion')
+                if isinstance(lock_version_data, dict):
+                    lock_version_str = f"v{lock_version_data.get('protocolVersion', 'unknown')}"
+                elif lock_version_data:
+                    lock_version_str = str(lock_version_data)
+                else:
+                    lock_version_str = 'unknown'
+
+                new_lock = SmartLock(
+                    user_id=user.id,
+                    property_id=None,  # Initially unassigned
+                    ttlock_id=ttlock_id,
+                    lock_name=lock_data.get('lockName', 'TTLock'),
+                    gateway_mac=lock_data.get('gatewayMac'),
+                    lock_mac=lock_data.get('lockMac'),
+                    lock_version=lock_version_str,
+                    battery_level=lock_data.get('electricQuantity'),
+                    settings={
+                        'auto_lock_time': lock_data.get('autoLockTime'),
+                        'privacy_lock': lock_data.get('privacyLock'),
+                        'delete_pwd': lock_data.get('deletePwd'),
+                        'feature_value': lock_data.get('featureValue'),
+                    }
+                )
+
+                db.session.add(new_lock)
+                new_locks_count += 1
+                existing_lock_ids.add(ttlock_id)
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Sync completed: {new_locks_count} new locks added, {updated_locks_count} locks updated',
+            'new_locks_count': new_locks_count,
+            'updated_locks_count': updated_locks_count,
+            'total_locks_count': len(existing_lock_ids)
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to sync TTLock locks: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@smart_locks_bp.route('/smart-locks/unassigned', methods=['GET'])
+@require_auth
+def get_unassigned_locks():
+    """Get all unassigned smart locks for the user"""
+    try:
+        # Get user record
+        user = get_user_by_firebase_uid(g.user_id)
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+        # Get unassigned smart locks
+        unassigned_locks = SmartLock.query.filter_by(
+            user_id=user.id,
+            property_id=None
+        ).all()
+
+        return jsonify({
+            'success': True,
+            'unassigned_locks': [lock.to_dict() for lock in unassigned_locks]
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to get unassigned locks: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@smart_locks_bp.route('/smart-locks/<lock_id>/assign', methods=['POST'])
+@require_auth
+def assign_lock_to_property(lock_id):
+    """Assign a smart lock to a property"""
+    try:
+        # Get user record
+        user = get_user_by_firebase_uid(g.user_id)
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+        # Get assignment data
+        assign_data = request.get_json()
+        if not assign_data:
+            return jsonify({'success': False, 'error': 'No assignment data provided'}), 400
+
+        property_id = assign_data.get('property_id')
+        if not property_id:
+            return jsonify({'success': False, 'error': 'property_id is required'}), 400
+
+        # Verify property ownership
+        property_obj = Property.query.filter_by(id=property_id, user_id=user.id).first()
+        if not property_obj:
+            return jsonify({'success': False, 'error': 'Property not found or access denied'}), 404
+
+        # Get smart lock and verify ownership
+        smart_lock = SmartLock.query.filter_by(id=lock_id, user_id=user.id).first()
+        if not smart_lock:
+            return jsonify({'success': False, 'error': 'Smart lock not found or access denied'}), 404
+
+        # Assign lock to property
+        smart_lock.property_id = property_id
+        smart_lock.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Smart lock "{smart_lock.lock_name}" assigned to property "{property_obj.name}"',
+            'smart_lock': smart_lock.to_dict()
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to assign lock to property: {str(e)}")
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@smart_locks_bp.route('/smart-locks/<lock_id>/unassign', methods=['POST'])
+@require_auth
+def unassign_lock_from_property(lock_id):
+    """Remove a smart lock assignment from a property"""
+    try:
+        # Get user record
+        user = get_user_by_firebase_uid(g.user_id)
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+
+        # Debug logging
+        logger.info(f"Unassign request - Lock ID: {lock_id}, User ID: {user.id}")
+
+        # Get smart lock and verify ownership
+        smart_lock = SmartLock.query.filter_by(id=lock_id, user_id=user.id).first()
+
+        if not smart_lock:
+            # Additional debugging - check if lock exists at all
+            any_lock = SmartLock.query.filter_by(id=lock_id).first()
+            if any_lock:
+                logger.warning(f"Lock {lock_id} exists but belongs to user {any_lock.user_id}, not {user.id}")
+            else:
+                logger.warning(f"Lock {lock_id} does not exist in database")
+            return jsonify({'success': False, 'error': 'Smart lock not found or access denied'}), 404
+
+        # Unassign lock from property
+        property_name = smart_lock.property.name if smart_lock.property else 'Unknown Property'
+        smart_lock.property_id = None
+        smart_lock.updated_at = datetime.now(timezone.utc)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': f'Smart lock "{smart_lock.lock_name}" unassigned from property "{property_name}"',
+            'smart_lock': smart_lock.to_dict()
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to unassign lock from property: {str(e)}")
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500

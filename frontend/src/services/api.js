@@ -1518,6 +1518,27 @@ export const api = {
   },
 
   // Smart Lock Management
+  async getTTLockConnectionStatus() {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/ttlock/status`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting TTLock connection status:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
   async connectTTLockAccount(credentials) {
     try {
       const token = await this.getAuthToken();
@@ -1605,6 +1626,97 @@ export const api = {
       return await response.json();
     } catch (error) {
       console.error('Error disconnecting TTLock account:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async syncTTLockAccount() {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/ttlock/sync`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error syncing TTLock account:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getUnassignedSmartLocks() {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/smart-locks/unassigned`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting unassigned smart locks:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async assignSmartLockToProperty(lockId, propertyId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/smart-locks/${lockId}/assign`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ property_id: propertyId })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error assigning smart lock to property:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async unassignSmartLockFromProperty(lockId) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/smart-locks/${lockId}/unassign`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error unassigning smart lock from property:', error);
       return { success: false, error: error.message };
     }
   },

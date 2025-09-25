@@ -120,7 +120,6 @@ class Property(db.Model):
     # Relationships
     reservations = db.relationship('Reservation', backref='property', lazy=True, cascade='all, delete-orphan')
     sync_logs = db.relationship('SyncLog', backref='property', lazy=True)
-    smart_locks = db.relationship('SmartLock', backref='property', lazy=True, cascade='all, delete-orphan')
     
     def to_dict(self):
         return {
@@ -842,7 +841,8 @@ class SmartLock(db.Model):
     __tablename__ = 'smart_locks'
 
     id = db.Column(UUID(as_uuid=True), primary_key=True, server_default=text('gen_random_uuid()'))
-    property_id = db.Column(UUID(as_uuid=True), db.ForeignKey('properties.id'), nullable=False)
+    property_id = db.Column(UUID(as_uuid=True), db.ForeignKey('properties.id'), nullable=True)  # Nullable for unassigned locks
+    user_id = db.Column(UUID(as_uuid=True), db.ForeignKey('users.id'), nullable=False)  # Owner of the lock
     ttlock_id = db.Column(db.String(255), unique=True, nullable=False)
     lock_name = db.Column(db.String(255), nullable=False)
     gateway_mac = db.Column(db.String(255), nullable=True)
@@ -855,6 +855,8 @@ class SmartLock(db.Model):
     updated_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'), onupdate=datetime.utcnow)
 
     # Relationships
+    user = db.relationship('User', backref='smart_locks', lazy=True)
+    property = db.relationship('Property', backref='smart_locks', lazy=True)
     access_codes = db.relationship('AccessCode', backref='smart_lock', lazy=True, cascade='all, delete-orphan')
     access_logs = db.relationship('AccessLog', backref='smart_lock', lazy=True, cascade='all, delete-orphan')
 

@@ -15,6 +15,7 @@ import ContractSignedSuccess from './pages/ContractSignedSuccess'
 import InvitationAcceptance from './pages/InvitationAcceptance'
 import TeamDetails from './pages/TeamDetails'
 import SmartLocks from './pages/SmartLocks'
+import PropertyLocks from './pages/PropertyLocks'
 
 // Protected route wrapper
 const ProtectedRoute = ({ children, allowProfileSetup = false }) => {
@@ -130,6 +131,12 @@ function App() {
               <ProtectedRoute>
                 <Navbar />
                 <SmartLocks />
+              </ProtectedRoute>
+            } />
+            <Route path="/properties/:propertyId/locks" element={
+              <ProtectedRoute>
+                <Navbar />
+                <PropertyLocks />
               </ProtectedRoute>
             } />
           </Routes>
