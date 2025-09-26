@@ -214,8 +214,9 @@ def update_property(property_id, user_id, update_data):
             return False
         
         # Update allowed fields
-        allowed_fields = ['name', 'address', 'ical_url', 'sync_frequency', 'contract_template_id', 
-                         'auto_verification', 'auto_contract', 'settings', 'last_sync']
+        allowed_fields = ['name', 'address', 'ical_url', 'sync_frequency', 'contract_template_id',
+                         'auto_verification', 'auto_contract', 'settings', 'last_sync',
+                         'smart_lock_type', 'smart_lock_instructions', 'smart_lock_settings']
         for field in allowed_fields:
             if field in update_data:
                 setattr(property, field, update_data[field])
