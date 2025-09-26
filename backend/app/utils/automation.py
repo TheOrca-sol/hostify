@@ -201,19 +201,27 @@ class AutomationService:
             db.session.add(verification_link)
             db.session.commit()
 
-            # Create a message template for the contract
-            template = MessageTemplate(
+            # Find or use reusable contract SMS template
+            template = MessageTemplate.query.filter_by(
                 user_id=property.user_id,
-                name=f"Contract for {guest.full_name}",
                 template_type='contract',
-                subject='Your rental contract',
-                content=f"Hello {guest.full_name}, please sign your rental contract: http://localhost:3000/sign-contract/{token}",
-                channels=['sms'],
-                active=True,
-                trigger_event='verification'
-            )
-            db.session.add(template)
-            db.session.commit()
+                name='Contract Signature Request'
+            ).first()
+
+            if not template:
+                # Create a reusable template if it doesn't exist
+                template = MessageTemplate(
+                    user_id=property.user_id,
+                    name='Contract Signature Request',
+                    template_type='contract',
+                    subject='Your rental contract',
+                    content='Hello {guest_name}, please sign your rental contract: {contract_link}',
+                    channels=['sms'],
+                    active=True,
+                    trigger_event='verification'
+                )
+                db.session.add(template)
+                db.session.commit()
 
             # Schedule the SMS to be sent immediately
             message = ScheduledMessage(

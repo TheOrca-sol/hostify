@@ -70,7 +70,7 @@ class MessageService:
             'host_phone': property.owner.phone if property and property.owner else '',
             'verification_link': f"https://hostify.app/verify/{guest.verification_token}" if guest and guest.verification_token else '',
             'verification_expiry': (datetime.now(timezone.utc) + timedelta(days=7)).strftime('%B %d, %Y at %H:%M UTC') if guest else '',
-            'contract_link': f"https://hostify.app/contract/sign/{guest.verification_token}" if guest and guest.verification_token else '',
+            'contract_link': self._get_contract_link(guest),
             'contract_expiry': (datetime.now(timezone.utc) + timedelta(days=7)).strftime('%B %d, %Y at %H:%M UTC') if guest else ''
         }
         
@@ -88,7 +88,29 @@ class MessageService:
             content = content.replace('{' + key + '}', str(value))
 
         return content
-    
+
+    def _get_contract_link(self, guest):
+        """Get the contract signing link for a guest"""
+        if not guest:
+            return ''
+
+        # First try to find a VerificationLink for contract signing
+        from ..models import VerificationLink
+        contract_link = VerificationLink.query.filter_by(
+            guest_id=guest.id,
+            contract_generated=True,
+            status='sent'
+        ).first()
+
+        if contract_link:
+            return f"http://localhost:5173/sign-contract/{contract_link.token}"
+
+        # Fallback to guest verification token if available
+        if guest.verification_token:
+            return f"http://localhost:5173/sign-contract/{guest.verification_token}"
+
+        return ''
+
     def _send_sms_sync(self, to_phone: str, content: str) -> str:
         """Send SMS using Twilio (synchronous version)"""
         message = self.twilio_client.messages.create(

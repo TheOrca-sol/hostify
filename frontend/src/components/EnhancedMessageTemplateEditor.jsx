@@ -11,11 +11,25 @@ export default function EnhancedMessageTemplateEditor({
   template,
   onSave,
   reservations = [],
-  properties = []
+  properties = [],
+  templateTypes = []
 }) {
+  const [name, setName] = useState(template?.name || '')
   const [content, setContent] = useState(template?.content || '')
   const [subject, setSubject] = useState(template?.subject || '')
+  const [templateType, setTemplateType] = useState(template?.template_type || 'welcome')
+  const [propertyId, setPropertyId] = useState(template?.property_id || '')
+  const [active, setActive] = useState(template?.active ?? true)
+  const [language, setLanguage] = useState(template?.language || 'en')
+  const [channels, setChannels] = useState(template?.channels || ['sms'])
+  // Automation fields
+  const [triggerEvent, setTriggerEvent] = useState(template?.trigger_event || '')
+  const [triggerOffsetValue, setTriggerOffsetValue] = useState(template?.trigger_offset_value || 0)
+  const [triggerOffsetUnit, setTriggerOffsetUnit] = useState(template?.trigger_offset_unit || 'days')
+  const [triggerDirection, setTriggerDirection] = useState(template?.trigger_direction || 'before')
+
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState(null)
   const [selectedReservation, setSelectedReservation] = useState('')
@@ -47,10 +61,27 @@ export default function EnhancedMessageTemplateEditor({
   const handleSave = async () => {
     try {
       setSaving(true)
+      // Validation
+      if (!name.trim()) {
+        setError('Template name is required')
+        return
+      }
+      setError(null)
+
       const templateData = {
         ...template,
+        name,
         content,
-        subject
+        subject,
+        template_type: templateType,
+        property_id: propertyId,
+        active,
+        language,
+        channels,
+        trigger_event: triggerEvent,
+        trigger_offset_value: triggerOffsetValue,
+        trigger_offset_unit: triggerOffsetUnit,
+        trigger_direction: triggerDirection
       }
 
       if (onSave) {
@@ -160,18 +191,114 @@ export default function EnhancedMessageTemplateEditor({
         </div>
 
         <div className="p-6">
-          {/* Subject Line */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Subject Line
-            </label>
-            <input
-              type="text"
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              placeholder="Message subject (for email channels)"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+          {error && (
+            <div className="bg-red-100 text-red-700 p-3 rounded-lg mb-6">
+              {error}
+            </div>
+          )}
+
+          {/* Template Details */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Template Name *
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter template name..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Message Type
+              </label>
+              <select
+                value={templateType}
+                onChange={(e) => setTemplateType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {templateTypes.map(type => (
+                  <option key={type.value} value={type.value}>{type.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Property (Optional)
+              </label>
+              <select
+                value={propertyId}
+                onChange={(e) => setPropertyId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All Properties</option>
+                {properties.map(property => (
+                  <option key={property.id} value={property.id}>{property.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Subject Line
+              </label>
+              <input
+                type="text"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Message subject (for email channels)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Language
+              </label>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="en">English</option>
+                <option value="fr">Français</option>
+                <option value="ar">العربية</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Channels
+              </label>
+              <select
+                value={channels[0] || 'sms'}
+                onChange={(e) => setChannels([e.target.value])}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="sms">SMS</option>
+                <option value="email">Email</option>
+                <option value="whatsapp">WhatsApp</option>
+              </select>
+            </div>
+            <div className="flex items-center">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={active}
+                  onChange={(e) => setActive(e.target.checked)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <span className="text-sm font-medium text-gray-700">
+                  Active Template
+                </span>
+              </label>
+            </div>
           </div>
 
           {/* Content Editor */}
@@ -189,6 +316,16 @@ export default function EnhancedMessageTemplateEditor({
               </div>
             </div>
 
+            {/* Basic Variable Buttons */}
+            <div className="flex flex-wrap gap-2 mb-2">
+              <button type="button" onClick={() => insertVariable('{guest_name}')} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm transition-colors">{'{guest_name}'}</button>
+              <button type="button" onClick={() => insertVariable('{property_name}')} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm transition-colors">{'{property_name}'}</button>
+              <button type="button" onClick={() => insertVariable('{check_in_date}')} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm transition-colors">{'{check_in_date}'}</button>
+              <button type="button" onClick={() => insertVariable('{check_out_date}')} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm transition-colors">{'{check_out_date}'}</button>
+              <button type="button" onClick={() => insertVariable('{verification_link}')} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm transition-colors">{'{verification_link}'}</button>
+              <button type="button" onClick={() => insertVariable('{host_name}')} className="px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded text-sm transition-colors">{'{host_name}'}</button>
+            </div>
+
             <textarea
               ref={contentRef}
               value={content}
@@ -204,6 +341,75 @@ export default function EnhancedMessageTemplateEditor({
               <span>Lines: {content.split('\n').length}</span>
               <span>Words: {content.split(/\s+/).filter(word => word.length > 0).length}</span>
             </div>
+          </div>
+
+          {/* Automation Rule Builder */}
+          <div className="border-t border-gray-200 pt-6 mt-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <RefreshCw className="w-5 h-5 mr-2" />
+              Automation Rule
+            </h3>
+
+            {/* Current Status Display */}
+            {template && (
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="text-sm text-blue-800">
+                  <strong>Current Automation:</strong>
+                  {triggerEvent ? (
+                    <span className="ml-2 text-green-600">
+                      ✓ Active - Sends {triggerOffsetValue} {triggerOffsetUnit} {triggerDirection} {triggerEvent.replace('_', ' ')}
+                    </span>
+                  ) : (
+                    <span className="ml-2 text-gray-600">
+                      ⚠ Manual only - No automation configured
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-4 p-4 bg-gray-50 rounded-lg">
+              <span className="text-sm font-medium text-gray-700">Send this message</span>
+              <input
+                type="number"
+                value={triggerOffsetValue}
+                onChange={(e) => setTriggerOffsetValue(parseInt(e.target.value) || 0)}
+                className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                min="0"
+              />
+              <select
+                value={triggerOffsetUnit}
+                onChange={(e) => setTriggerOffsetUnit(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="hours">hour(s)</option>
+                <option value="days">day(s)</option>
+              </select>
+              <select
+                value={triggerDirection}
+                onChange={(e) => setTriggerDirection(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              >
+                <option value="before">before</option>
+                <option value="after">after</option>
+              </select>
+              <select
+                value={triggerEvent}
+                onChange={(e) => setTriggerEvent(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm min-w-[140px]"
+              >
+                <option value="">Select Trigger</option>
+                <option value="check_in">Check-in</option>
+                <option value="check_out">Check-out</option>
+                <option value="verification">Verification</option>
+              </select>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              {triggerEvent ?
+                `This message will be sent automatically ${triggerOffsetValue} ${triggerOffsetUnit} ${triggerDirection} ${triggerEvent.replace('_', ' ')}.` :
+                "Leave the trigger blank to send this message manually."
+              }
+            </p>
           </div>
         </div>
       </div>

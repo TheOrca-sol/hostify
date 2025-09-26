@@ -425,17 +425,27 @@ def generate_contract_and_schedule_sms(guest_id):
         db.session.add(verification_link)
         db.session.commit()
 
-        # Create a message template for the contract
-        template = MessageTemplate(
+        # Find or use reusable contract SMS template
+        template = MessageTemplate.query.filter_by(
             user_id=user.id,
-            name=f"Contract for {guest.full_name}",
-            type='contract',
-            subject='Your rental contract',
-            content=f"Hello {guest.full_name}, please sign your rental contract: http://localhost:5173/sign-contract/{verification_link.token}",
-            channels=['sms']
-        )
-        db.session.add(template)
-        db.session.commit()
+            template_type='contract',
+            name='Contract Signature Request'
+        ).first()
+
+        if not template:
+            # Create a reusable template if it doesn't exist
+            template = MessageTemplate(
+                user_id=user.id,
+                name='Contract Signature Request',
+                template_type='contract',
+                subject='Your rental contract',
+                content='Hello {guest_name}, please sign your rental contract: {contract_link}',
+                channels=['sms'],
+                active=True,
+                trigger_event='contract_generation'
+            )
+            db.session.add(template)
+            db.session.commit()
 
         # Schedule the SMS
         message = ScheduledMessage(

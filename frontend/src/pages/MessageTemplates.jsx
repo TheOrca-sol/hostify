@@ -221,6 +221,7 @@ export default function MessageTemplates() {
                 onSave={handleFormSubmit}
                 reservations={reservations}
                 properties={properties}
+                templateTypes={templateTypes}
               />
             </div>
           </div>
