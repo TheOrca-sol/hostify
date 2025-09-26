@@ -118,7 +118,7 @@ export default function SmartLockVariableSelector({ onInsertVariable }) {
                   Smart lock variables automatically adapt based on each property's configuration:
                 </p>
                 <ul className="text-xs text-blue-700 mt-1 space-y-1">
-                  <li>• TTLock properties: Show generated passcodes</li>
+                  <li>• Automated properties: Show generated passcodes</li>
                   <li>• Manual smart locks: Show host-entered passcodes</li>
                   <li>• Traditional access: Show custom instructions</li>
                 </ul>

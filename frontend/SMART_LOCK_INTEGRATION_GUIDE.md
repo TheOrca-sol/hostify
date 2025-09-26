@@ -182,7 +182,7 @@ function ReservationRow({ reservation }) {
 
 ### 🏠 **Property Settings Page**
 - **Smart Lock Configuration Section** with three options:
-  - 🔐 TTLock (Automated)
+  - 🔐 Automated Smart Lock
   - 👤 Manual Smart Lock
   - 🔑 Traditional Access
 - **Instructions field** for custom guest directions
@@ -271,8 +271,8 @@ const navigationItems = [
 
 ## 🎯 **User Experience Flow**
 
-### For TTLock Properties:
-1. Host configures property as "TTLock" in settings
+### For Automated Smart Lock Properties:
+1. Host configures property as "Automated Smart Lock" in settings
 2. When reservation is 3 hours from check-in → automatic passcode generation
 3. Host receives SMS confirmation
 4. Guest receives check-in message with passcode

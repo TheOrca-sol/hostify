@@ -66,8 +66,8 @@ export default function PropertySmartLockSettings({ propertyId, onSettingsUpdate
   const getSmartLockTypeInfo = (type) => {
     const info = {
       ttlock: {
-        label: 'TTLock Smart Lock',
-        description: 'Automated passcode generation via TTLock API. Passcodes are generated automatically 3 hours before check-in.',
+        label: 'Automated Smart Lock',
+        description: 'Fully automated passcode generation. Passcodes are generated automatically 3 hours before check-in.',
         icon: '🔐',
         color: 'text-blue-600 bg-blue-100'
       },
@@ -227,9 +227,9 @@ export default function PropertySmartLockSettings({ propertyId, onSettingsUpdate
             <div className="flex items-start space-x-3">
               <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
               <div>
-                <h4 className="font-medium text-blue-900">TTLock Configuration</h4>
+                <h4 className="font-medium text-blue-900">Automated Smart Lock Configuration</h4>
                 <p className="text-sm text-blue-800 mt-1">
-                  Make sure you have connected your TTLock account and assigned smart locks to this property
+                  Make sure you have connected your smart lock account and assigned devices to this property
                   in the Smart Locks section. Passcodes will be generated automatically 3 hours before guest check-in.
                 </p>
                 <ul className="text-sm text-blue-700 mt-2 space-y-1">

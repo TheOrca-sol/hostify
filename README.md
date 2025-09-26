@@ -5,8 +5,8 @@ Hostify is a comprehensive multi-role property management system with intelligen
 ## 🌟 Core Features
 
 ### 🔐 Smart Lock Automation & Access Management
-- **TTLock Integration:** Automated passcode generation 3 hours before check-in with real-time sync
-- **Multi-Access Types:** Support for TTLock automated, manual smart locks, and traditional key access
+- **Automated Smart Lock Integration:** Intelligent passcode generation 3 hours before check-in with real-time sync
+- **Multi-Access Types:** Support for automated smart locks, manual smart locks, and traditional key access
 - **Intelligent Timing:** Passcodes valid from 1 hour before check-in to 1 hour after check-out
 - **Host Notifications:** SMS alerts for passcode generation and manual entry requirements
 - **Dashboard Widgets:** Real-time pending passcode alerts with urgency indicators
@@ -61,7 +61,7 @@ Hostify is a comprehensive multi-role property management system with intelligen
 | **Backend** | Flask + SQLAlchemy | API and business logic with smart lock automation |
 | **Database** | PostgreSQL | Data storage with UUID primary keys and smart lock models |
 | **Auth** | Firebase Auth | Multi-method authentication (Google, Email, SMS) |
-| **Smart Locks** | TTLock API | Automated passcode generation and lock management |
+| **Smart Locks** | Smart Lock API Integration | Automated passcode generation and lock management |
 | **OCR** | Tesseract | Document processing and data extraction |
 | **SMS** | Twilio | SMS notifications, phone authentication, and smart lock alerts |
 | **PDF Generation** | ReportLab + Pillow | Contract generation with digital signatures |
@@ -231,7 +231,7 @@ hostify/
 │   │   │   ├── sms_auth.py           # SMS verification service
 │   │   │   ├── pdf_generator.py      # Contract PDF generation
 │   │   │   ├── passcode_service.py   # Smart lock passcode generation and management
-│   │   │   ├── ttlock_service.py     # TTLock API integration service
+│   │   │   ├── ttlock_service.py     # Smart lock API integration service
 │   │   │   └── message_template_service.py # Template processing with smart lock variables
 │   │   ├── utils/              # Business logic utilities
 │   │   │   ├── database.py           # Occupancy calculations
@@ -252,14 +252,14 @@ hostify/
 
 ## 🎯 Key Database Models
 
-- **User**: Multi-role user accounts with signatures, phone numbers, and TTLock credentials
+- **User**: Multi-role user accounts with signatures, phone numbers, and smart lock credentials
 - **Property**: Property information with team management and smart lock configuration
 - **PropertyTeamMember**: Role-based team member assignments
 - **TeamInvitation**: Email and SMS invitation tracking
 - **PhoneVerification**: SMS authentication codes and verification
 - **Reservation**: Guest bookings with iCal sync and passcode integration
 - **ReservationPasscode**: Smart lock passcodes with validity periods and generation methods
-- **SmartLock**: TTLock device information and property assignments
+- **SmartLock**: Smart lock device information and property assignments
 - **AccessCode**: Individual smart lock passcodes with usage tracking
 - **AccessLog**: Smart lock access history and audit trail
 - **Guest**: Guest information with document verification
@@ -271,7 +271,7 @@ hostify/
 ## 🔐 Smart Lock Features
 
 ### 🎯 **Property-Level Configuration**
-- **TTLock Automated**: Full automation with 3-hour advance passcode generation
+- **Automated Smart Lock**: Full automation with 3-hour advance passcode generation
 - **Manual Smart Lock**: Dashboard-driven passcode entry with SMS alerts
 - **Traditional Access**: Custom instructions for key/lockbox access
 
@@ -288,7 +288,7 @@ hostify/
 - `{smart_lock_type}` - Property access method type
 
 ### 🤖 **Background Automation**
-- **Automatic Generation**: TTLock passcodes created 3 hours before check-in
+- **Automatic Generation**: Smart lock passcodes created 3 hours before check-in
 - **SMS Notifications**: Hosts receive alerts for both automated and manual passcodes
 - **Cleanup Processing**: Expired passcodes automatically marked and cleaned up
 - **Dedicated Workers**: Separate processes for reliability and scaling
@@ -298,7 +298,7 @@ hostify/
 ## 🚀 **Getting Started with Smart Locks**
 
 1. **Configure Property**: Set smart lock type in property settings
-2. **Connect TTLock**: Add TTLock credentials for automated properties
+2. **Connect Smart Lock**: Add smart lock credentials for automated properties
 3. **Create Templates**: Use smart lock variables in your message templates
 4. **Start Workers**: Run background processes for automation
 5. **Monitor Dashboard**: Track pending passcodes and guest access

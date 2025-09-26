@@ -7,7 +7,7 @@ export default function SmartLockManagement({ property }) {
   const [locks, setLocks] = useState([])
   const [loading, setLoading] = useState(true)
   const [showConnectForm, setShowConnectForm] = useState(false)
-  const [ttlockCredentials, setTtlockCredentials] = useState({ username: '', password: '' })
+  const [smartLockCredentials, setSmartLockCredentials] = useState({ username: '', password: '' })
   const [connecting, setConnecting] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
@@ -40,19 +40,19 @@ export default function SmartLockManagement({ property }) {
     }
   }
 
-  const connectTTLockAccount = async () => {
+  const connectSmartLockAccount = async () => {
     try {
       setConnecting(true)
-      const result = await api.connectTTLockAccount(ttlockCredentials)
+      const result = await api.connectTTLockAccount(smartLockCredentials)
 
       if (result.success) {
         const message = result.locks_count > 0
-          ? `TTLock account connected! Found ${result.locks_count} locks (unassigned)`
-          : 'TTLock account connected! No locks found'
+          ? `Smart lock account connected! Found ${result.locks_count} locks (unassigned)`
+          : 'Smart lock account connected! No locks found'
         toast.success(message)
         setIsConnected(true)
         setShowConnectForm(false)
-        setTtlockCredentials({ username: '', password: '' })
+        setSmartLockCredentials({ username: '', password: '' })
 
         // Refresh the locks list (this will update connection status)
         await fetchLocks()
@@ -64,11 +64,11 @@ export default function SmartLockManagement({ property }) {
           }, 2000)
         }
       } else {
-        toast.error(result.error || 'Failed to connect TTLock account')
+        toast.error(result.error || 'Failed to connect smart lock account')
       }
     } catch (error) {
-      console.error('Error connecting TTLock account:', error)
-      toast.error('Failed to connect TTLock account')
+      console.error('Error connecting smart lock account:', error)
+      toast.error('Failed to connect smart lock account')
     } finally {
       setConnecting(false)
     }
@@ -89,25 +89,25 @@ export default function SmartLockManagement({ property }) {
     }
   }
 
-  const disconnectTTLockAccount = async () => {
+  const disconnectSmartLockAccount = async () => {
     try {
       setDisconnecting(true)
       const result = await api.disconnectTTLockAccount()
 
       if (result.success) {
-        toast.success('TTLock account disconnected and all locks deleted')
+        toast.success('Smart lock account disconnected and all locks deleted')
         setIsConnected(false)
         setLocks([])
-        setTtlockCredentials({ username: '', password: '' })
+        setSmartLockCredentials({ username: '', password: '' })
 
         // Refresh the connection status to reflect changes across the app
         await fetchLocks()
       } else {
-        toast.error(result.error || 'Failed to disconnect TTLock account')
+        toast.error(result.error || 'Failed to disconnect smart lock account')
       }
     } catch (error) {
-      console.error('Error disconnecting TTLock account:', error)
-      toast.error('Failed to disconnect TTLock account')
+      console.error('Error disconnecting smart lock account:', error)
+      toast.error('Failed to disconnect smart lock account')
     } finally {
       setDisconnecting(false)
     }
@@ -174,31 +174,31 @@ export default function SmartLockManagement({ property }) {
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center"
           >
             <Plus className="w-4 h-4 mr-2" />
-            Connect TTLock
+            Connect Smart Lock
           </button>
         )}
       </div>
 
-      {/* TTLock Connection Form */}
+      {/* Smart Lock Connection Form */}
       {showConnectForm && (
         <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
           <h4 className="text-md font-medium text-gray-900 mb-4">
-            Connect Your TTLock Account
+            Connect Your Smart Lock Account
           </h4>
           <p className="text-sm text-gray-600 mb-4">
-            Enter your TTLock app credentials (phone number or email and password)
+            Enter your smart lock app credentials (phone number or email and password)
           </p>
 
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                TTLock Username (Phone/Email)
+                Smart Lock Username (Phone/Email)
               </label>
               <input
                 type="text"
-                value={ttlockCredentials.username}
-                onChange={(e) => setTtlockCredentials({
-                  ...ttlockCredentials,
+                value={smartLockCredentials.username}
+                onChange={(e) => setSmartLockCredentials({
+                  ...smartLockCredentials,
                   username: e.target.value
                 })}
                 placeholder="e.g., +212663401973 or email@example.com"
@@ -208,24 +208,24 @@ export default function SmartLockManagement({ property }) {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                TTLock Password
+                Smart Lock Password
               </label>
               <input
                 type="password"
-                value={ttlockCredentials.password}
-                onChange={(e) => setTtlockCredentials({
-                  ...ttlockCredentials,
+                value={smartLockCredentials.password}
+                onChange={(e) => setSmartLockCredentials({
+                  ...smartLockCredentials,
                   password: e.target.value
                 })}
-                placeholder="Your TTLock app password"
+                placeholder="Your smart lock app password"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
 
             <div className="flex space-x-3">
               <button
-                onClick={connectTTLockAccount}
-                disabled={connecting || !ttlockCredentials.username || !ttlockCredentials.password}
+                onClick={connectSmartLockAccount}
+                disabled={connecting || !smartLockCredentials.username || !smartLockCredentials.password}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 flex items-center"
               >
                 {connecting ? (
@@ -261,8 +261,8 @@ export default function SmartLockManagement({ property }) {
           </h4>
           <p className="text-gray-600 mb-4">
             {isConnected
-              ? 'You have TTLock connected but no locks are assigned to this property. Go to the main Smart Locks page to assign locks.'
-              : 'Connect your TTLock account to manage smart locks.'
+              ? 'You have smart locks connected but no locks are assigned to this property. Go to the main Smart Locks page to assign locks.'
+              : 'Connect your smart lock account to manage smart locks.'
             }
           </p>
           {!showConnectForm && !isConnected && (
@@ -270,7 +270,7 @@ export default function SmartLockManagement({ property }) {
               onClick={() => setShowConnectForm(true)}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
             >
-              Connect TTLock Account
+              Connect Smart Lock Account
             </button>
           )}
         </div>
@@ -287,7 +287,7 @@ export default function SmartLockManagement({ property }) {
                   <div>
                     <h4 className="font-medium text-gray-900">{lock.lock_name}</h4>
                     <p className="text-sm text-gray-600">
-                      TTLock ID: {lock.ttlock_id}
+                      Device ID: {lock.ttlock_id}
                     </p>
                     <p className="text-sm text-gray-600">
                       MAC: {lock.lock_mac}
@@ -345,7 +345,7 @@ export default function SmartLockManagement({ property }) {
           <div className="flex items-center">
             <Wifi className="w-4 h-4 text-green-600 mr-2" />
             <span className="text-sm text-green-800">
-              TTLock account connected {locks.length === 0 ? '(assign locks from main page)' : ''}
+              Smart lock account connected {locks.length === 0 ? '(assign locks from main page)' : ''}
             </span>
           </div>
         </div>

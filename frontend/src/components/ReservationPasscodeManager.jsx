@@ -136,7 +136,7 @@ export default function ReservationPasscodeManager({ reservation }) {
 
   const getSmartLockTypeInfo = (type) => {
     const info = {
-      ttlock: { label: 'TTLock Smart Lock', icon: '🔐', color: 'text-blue-600' },
+      ttlock: { label: 'Automated Smart Lock', icon: '🔐', color: 'text-blue-600' },
       manual: { label: 'Manual Smart Lock', icon: '👤', color: 'text-orange-600' },
       traditional: { label: 'Traditional Access', icon: '🔑', color: 'text-gray-600' }
     }
@@ -219,7 +219,7 @@ export default function ReservationPasscodeManager({ reservation }) {
                   <h4 className="font-medium text-blue-900">Passcode Not Generated</h4>
                   <p className="text-sm text-blue-800 mt-1">
                     {propertySettings.smart_lock_type === 'ttlock'
-                      ? 'TTLock passcode will be generated automatically 3 hours before check-in, or you can generate it now manually.'
+                      ? 'Automated passcode will be generated 3 hours before check-in, or you can generate it now manually.'
                       : 'Generate a manual passcode for this reservation.'
                     }
                   </p>
