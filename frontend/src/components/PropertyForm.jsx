@@ -9,7 +9,16 @@ export default function PropertyForm({ onPropertyAdded, onCancel }) {
     sync_frequency: 3,
     auto_verification: true,
     auto_contract: true,
-    auto_messaging: true
+    auto_messaging: true,
+    // New fields
+    wifi_name: '',
+    wifi_password: '',
+    check_in_time: '15:00',
+    check_out_time: '11:00',
+    latitude: '',
+    longitude: '',
+    property_type: 'apartment',
+    access_instructions: ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -85,8 +94,8 @@ export default function PropertyForm({ onPropertyAdded, onCancel }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
-      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+      <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">Add New Property</h3>
           <p className="mt-1 text-sm text-gray-600">
@@ -196,6 +205,142 @@ export default function PropertyForm({ onPropertyAdded, onCancel }) {
             </select>
           </div>
 
+          {/* Property Type and Times */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="property_type" className="block text-sm font-medium text-gray-700">
+                Property Type
+              </label>
+              <select
+                id="property_type"
+                name="property_type"
+                value={formData.property_type}
+                onChange={handleChange}
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
+              >
+                <option value="apartment">Apartment</option>
+                <option value="house">House</option>
+                <option value="villa">Villa</option>
+                <option value="studio">Studio</option>
+                <option value="condo">Condo</option>
+                <option value="room">Room</option>
+              </select>
+            </div>
+            <div></div>
+          </div>
+
+          {/* Check-in/Check-out Times */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="check_in_time" className="block text-sm font-medium text-gray-700">
+                Default Check-in Time
+              </label>
+              <input
+                type="time"
+                id="check_in_time"
+                name="check_in_time"
+                value={formData.check_in_time}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label htmlFor="check_out_time" className="block text-sm font-medium text-gray-700">
+                Default Check-out Time
+              </label>
+              <input
+                type="time"
+                id="check_out_time"
+                name="check_out_time"
+                value={formData.check_out_time}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* WiFi Information */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="wifi_name" className="block text-sm font-medium text-gray-700">
+                WiFi Name (SSID)
+              </label>
+              <input
+                type="text"
+                id="wifi_name"
+                name="wifi_name"
+                value={formData.wifi_name}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="WiFi network name"
+              />
+            </div>
+            <div>
+              <label htmlFor="wifi_password" className="block text-sm font-medium text-gray-700">
+                WiFi Password
+              </label>
+              <input
+                type="text"
+                id="wifi_password"
+                name="wifi_password"
+                value={formData.wifi_password}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="WiFi password"
+              />
+            </div>
+          </div>
+
+          {/* Location Coordinates */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="latitude" className="block text-sm font-medium text-gray-700">
+                Latitude (Optional)
+              </label>
+              <input
+                type="number"
+                step="any"
+                id="latitude"
+                name="latitude"
+                value={formData.latitude}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., 36.8485"
+              />
+            </div>
+            <div>
+              <label htmlFor="longitude" className="block text-sm font-medium text-gray-700">
+                Longitude (Optional)
+              </label>
+              <input
+                type="number"
+                step="any"
+                id="longitude"
+                name="longitude"
+                value={formData.longitude}
+                onChange={handleChange}
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., 10.1658"
+              />
+            </div>
+          </div>
+
+          {/* Access Instructions */}
+          <div>
+            <label htmlFor="access_instructions" className="block text-sm font-medium text-gray-700">
+              Access Instructions (Optional)
+            </label>
+            <textarea
+              id="access_instructions"
+              name="access_instructions"
+              rows={3}
+              value={formData.access_instructions}
+              onChange={handleChange}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Door codes, key location, special instructions for guests..."
+            />
+          </div>
+
           {/* Auto Features */}
           <div className="space-y-3">
             <div className="flex items-center">
@@ -211,7 +356,7 @@ export default function PropertyForm({ onPropertyAdded, onCancel }) {
                 Auto-send verification links to guests
               </label>
             </div>
-            
+
             <div className="flex items-center">
               <input
                 type="checkbox"

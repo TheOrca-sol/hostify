@@ -120,6 +120,16 @@ class Property(db.Model):
     smart_lock_instructions = db.Column(db.Text, nullable=True)  # Custom instructions for guests
     smart_lock_settings = db.Column(JSON, nullable=True)  # Smart lock specific settings
 
+    # Enhanced Property Information
+    wifi_name = db.Column(db.Text, nullable=True)  # WiFi SSID
+    wifi_password = db.Column(db.Text, nullable=True)  # WiFi password
+    check_in_time = db.Column(db.Time, nullable=True)  # Default check-in time (e.g., 15:00)
+    check_out_time = db.Column(db.Time, nullable=True)  # Default check-out time (e.g., 11:00)
+    latitude = db.Column(db.Numeric(precision=10, scale=8), nullable=True)  # GPS latitude
+    longitude = db.Column(db.Numeric(precision=11, scale=8), nullable=True)  # GPS longitude
+    property_type = db.Column(db.String(50), nullable=True)  # apartment, house, villa, etc.
+    access_instructions = db.Column(db.Text, nullable=True)  # Door codes, key location, etc.
+
     is_active = db.Column(db.Boolean, server_default=text('true'))  # For soft delete
     created_at = db.Column(db.DateTime(timezone=True), server_default=text('now()'))
     
@@ -147,6 +157,16 @@ class Property(db.Model):
             'smart_lock_type': self.smart_lock_type,
             'smart_lock_instructions': self.smart_lock_instructions,
             'smart_lock_settings': self.smart_lock_settings,
+
+            # Enhanced Property Information
+            'wifi_name': self.wifi_name,
+            'wifi_password': self.wifi_password,
+            'check_in_time': self.check_in_time.strftime('%H:%M') if self.check_in_time else None,
+            'check_out_time': self.check_out_time.strftime('%H:%M') if self.check_out_time else None,
+            'latitude': str(self.latitude) if self.latitude else None,
+            'longitude': str(self.longitude) if self.longitude else None,
+            'property_type': self.property_type,
+            'access_instructions': self.access_instructions,
 
             'created_at': self.created_at.isoformat() if self.created_at else None,
             # Include team information
