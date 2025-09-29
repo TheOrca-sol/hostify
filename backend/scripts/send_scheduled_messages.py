@@ -13,8 +13,29 @@ if os.path.exists(dotenv_path):
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app import create_app, db
-from app.models import ScheduledMessage
+from app.models import ScheduledMessage, VerificationLink
 from app.utils.sms import send_sms
+
+def get_contract_link(guest):
+    """Get the contract signing link for a guest"""
+    if not guest:
+        return ''
+
+    # First try to find a VerificationLink for contract signing
+    contract_link = VerificationLink.query.filter_by(
+        guest_id=guest.id,
+        contract_generated=True,
+        status='sent'
+    ).first()
+
+    if contract_link:
+        return f"http://localhost:5173/sign-contract/{contract_link.token}"
+
+    # Fallback to guest verification token if available
+    if guest.verification_token:
+        return f"http://localhost:5173/sign-contract/{guest.verification_token}"
+
+    return ''
 
 def send_due_messages():
     """
@@ -62,10 +83,20 @@ def send_due_messages():
                     'host_phone': property.owner.phone if property and property.owner else '',
                     'verification_link': f"https://hostify.app/verify/{guest.verification_token}" if guest and guest.verification_token else '',
                     'verification_expiry': (datetime.now(timezone.utc) + timedelta(days=7)).strftime('%B %d, %Y at %H:%M UTC') if guest else '',
-                    'contract_link': f"https://hostify.app/contract/sign/{guest.verification_token}" if guest and guest.verification_token else '',
+                    'contract_link': get_contract_link(guest),
                     'contract_expiry': (datetime.now(timezone.utc) + timedelta(days=7)).strftime('%B %d, %Y at %H:%M UTC') if guest else ''
                 }
-                
+
+                # Add smart lock variables
+                try:
+                    from app.services.message_template_service import message_template_service
+                    if reservation:
+                        smart_lock_vars = message_template_service.get_smart_lock_variables(str(reservation.id))
+                        variables.update(smart_lock_vars)
+                        print(f"    -> Loaded {len(smart_lock_vars)} smart lock variables")
+                except Exception as e:
+                    print(f"    -> Warning: Failed to load smart lock variables: {str(e)}")
+
                 # Replace variables in content (handle both single and double braces)
                 for key, value in variables.items():
                     content = content.replace('{' + key + '}', str(value))
