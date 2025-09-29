@@ -1971,6 +1971,58 @@ export const api = {
       console.error('Error testing smart lock template:', error);
       return { success: false, error: error.message };
     }
+  },
+
+  // Admin Testing
+  async getAdminTestData() {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/admin/test-data`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting admin test data:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async previewTestMessage(data) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/admin/test-message-preview`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(data)
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error previewing test message:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  async sendTestMessage(data) {
+    try {
+      const token = await this.getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/admin/send-test-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(data)
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error sending test message:', error);
+      return { success: false, error: error.message };
+    }
   }
 };
 

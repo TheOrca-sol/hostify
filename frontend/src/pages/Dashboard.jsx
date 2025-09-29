@@ -11,7 +11,8 @@ import TeamsManagement from './TeamsManagement'
 import OccupancyCalendar from '../components/OccupancyCalendar'
 import PropertyOccupancyChart from '../components/PropertyOccupancyChart'
 import PendingPasscodes from '../components/PendingPasscodes'
-import { Home, Calendar, Users, Mail, BarChart, FileText, UserCheck, RefreshCw, CheckCircle, UserPlus, Activity, Database } from 'lucide-react'
+import AdminTestingPanel from '../components/AdminTestingPanel'
+import { Home, Calendar, Users, Mail, BarChart, FileText, UserCheck, RefreshCw, CheckCircle, UserPlus, Activity, Database, TestTube } from 'lucide-react'
 
 export default function Dashboard() {
   const { userProfile } = useAuth()
@@ -161,7 +162,8 @@ export default function Dashboard() {
     { id: 'communications', name: 'Communications', icon: Mail },
     { id: 'contracts', name: 'Contracts', icon: FileText },
     { id: 'teams', name: 'Teams', icon: UserCheck },
-    { id: 'activity', name: 'Activity', icon: Activity }
+    { id: 'activity', name: 'Activity', icon: Activity },
+    { id: 'admin-testing', name: 'Admin Testing', icon: TestTube }
   ]
 
   if (loading) {
@@ -888,6 +890,11 @@ export default function Dashboard() {
             </div>
           )}
 
+          {activeTab === 'admin-testing' && (
+            <div className="space-y-6">
+              <AdminTestingPanel />
+            </div>
+          )}
 
         </div>
       </div>
